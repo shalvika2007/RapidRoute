@@ -1,0 +1,12 @@
+{
+  "name": "rapidroute",
+  "version": "1.0.0",
+  "description": "RapidRoute ambulance hospital coordination demo using real nearby OpenStreetMap hospital data",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

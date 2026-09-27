@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RapidRoute</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="logo">
+            <span class="logo-cross">✚</span>
+            RAPIDROUTE
+        </div>
+
+        <div class="nav-links">
+            <a href="#" onclick="showHome()">Home</a>
+            <a href="#" onclick="showAbout()">About</a>
+            <a href="#" onclick="showHowItWorks()">How It Works</a>
+            <a href="#" onclick="showContact()">Contact</a>
+        </div>
+
+        <div class="system-status">
+            <span class="status-dot"></span>
+            System Online
+        </div>
+    </nav>
+
+    <section class="hero" id="homeScreen">
+
+        <div class="hero-content">
+
+            <div class="hero-kicker-row">
+                <div class="eyebrow">EMERGENCY HOSPITAL COORDINATION SYSTEM</div>
+                <span class="kicker-line"></span>
+            </div>
+
+            <h1>Care,<br><em>already in motion.</em></h1>
+
+            <p class="hero-description">
+                A calmer, smarter way to connect ambulances with the right hospital before the patient arrives.
+            </p>
+
+            <div class="hero-actions">
+                <button class="emergency-button" onclick="showEmergencyForm()">
+                    Start Emergency Search
+                    <span>↗</span>
+                </button>
+                <button class="hero-text-button" onclick="showHowItWorks()">
+                    See how it works <span>→</span>
+                </button>
+            </div>
+
+            <div class="hero-meta">
+                <div><strong>01</strong><span>Emergency<br>details</span></div>
+                <div><strong>02</strong><span>Smart<br>hospital match</span></div>
+                <div><strong>03</strong><span>Pre-arrival<br>coordination</span></div>
+            </div>
+
+        </div>
+
+        <div class="hero-visual">
+
+            <div class="visual-topline">
+                <span>RAPIDROUTE / 01</span>
+                <span class="visual-live"><i></i> LIVE NETWORK</span>
+            </div>
+
+            <div class="visual-map-grid"></div>
+
+            <div class="route-route route-a"></div>
+            <div class="route-route route-b"></div>
+            <div class="route-route route-c"></div>
+
+            <div class="map-label label-a">AMBULANCE</div>
+            <div class="map-label label-b">HOSPITAL</div>
+
+            <div class="map-pin ambulance-pin">
+                <span>✚</span>
+            </div>
+
+            <div class="map-pin hospital-pin">
+                <span>+</span>
+            </div>
+
+            <div class="location-card">
+                <span class="location-icon">⌖</span>
+                <div>
+                    <small>COORDINATION STATUS</small>
+                    <strong>Hospital matching active</strong>
+                </div>
+                <span class="location-arrow">↗</span>
+            </div>
+
+            <div class="visual-number">01</div>
+
+        </div>
+
+    </section>
+
+    <section class="about-screen" id="aboutScreen">
+
+        <div class="about-content">
+
+            <div class="eyebrow">
+                ABOUT RAPIDROUTE
+            </div>
+
+            <h2>
+                Emergency care<br>
+                should not wait.
+            </h2>
+
+            <p class="about-intro">
+                RapidRoute connects ambulances with suitable
+                hospitals before the patient arrives, helping
+                reduce the time spent searching, coordinating
+                and waiting.
+            </p>
+
+            <div class="about-highlight">
+
+                <div class="highlight-number">
+                    01
+                </div>
+
+                <div class="highlight-content">
+
+                    <h3>
+                        From emergency to hospital,
+                        without the unnecessary delay.
+                    </h3>
+
+                    <p>
+                        Instead of relying on manual calls and
+                        uncertain availability, RapidRoute brings
+                        important emergency information together
+                        in one place.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="about-grid">
+
+                <div class="about-card">
+
+                    <div class="about-icon">
+                        ⚡
+                    </div>
+
+                    <span class="card-number">
+                        01
+                    </span>
+
+                    <h3>
+                        Faster coordination
+                    </h3>
+
+                    <p>
+                        Help ambulances quickly identify hospitals
+                        that can handle the emergency.
+                    </p>
+
+                </div>
+
+
+                <div class="about-card">
+
+                    <div class="about-icon">
+                        ✚
+                    </div>
+
+                    <span class="card-number">
+                        02
+                    </span>
+
+                    <h3>
+                        Smarter matching
+                    </h3>
+
+                    <p>
+                        Compare specialty, emergency capacity,
+                        distance and estimated arrival time.
+                    </p>
+
+                </div>
+
+
+                <div class="about-card">
+
+                    <div class="about-icon">
+                        📡
+                    </div>
+
+                    <span class="card-number">
+                        03
+                    </span>
+
+                    <h3>
+                        Prepared hospitals
+                    </h3>
+
+                    <p>
+                        Send a pre-arrival alert so the selected
+                        hospital knows the ambulance is coming.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="about-flow">
+
+                <div class="flow-title">
+                    HOW RAPIDROUTE CONNECTS THE JOURNEY
+                </div>
+
+                <div class="flow-line">
+
+                    <span>Emergency</span>
+                    <b>→</b>
+
+                    <span>Ambulance</span>
+                    <b>→</b>
+
+                    <span>Smart Match</span>
+                    <b>→</b>
+
+                    <span>Hospital</span>
+                    <b>→</b>
+
+                    <span>Care Ready</span>
+
+                </div>
+
+            </div>
+
+
+            <button class="about-back-button" onclick="showHome()">
+                ← Back to Home
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section class="how-screen" id="howScreen">
+
+        <div class="how-content">
+
+            <div class="eyebrow">
+                HOW RAPIDROUTE WORKS
+            </div>
+
+            <h2>
+                From emergency<br>
+                to ready care.
+            </h2>
+
+            <p class="how-intro">
+                RapidRoute creates a simple connection between
+                the ambulance and the hospital before arrival.
+            </p>
+
+            <div class="how-steps">
+
+                <div class="how-step">
+
+                    <span>01</span>
+
+                    <h3>
+                        Emergency
+                    </h3>
+
+                    <p>
+                        Enter the emergency type and required
+                        medical specialty.
+                    </p>
+
+                </div>
+
+
+                <div class="how-step">
+
+                    <span>02</span>
+
+                    <h3>
+                        Smart Match
+                    </h3>
+
+                    <p>
+                        RapidRoute compares suitable hospitals
+                        using availability and ETA.
+                    </p>
+
+                </div>
+
+
+                <div class="how-step">
+
+                    <span>03</span>
+
+                    <h3>
+                        Confirmation
+                    </h3>
+
+                    <p>
+                        The selected hospital receives the
+                        emergency request.
+                    </p>
+
+                </div>
+
+
+                <div class="how-step">
+
+                    <span>04</span>
+
+                    <h3>
+                        Care Ready
+                    </h3>
+
+                    <p>
+                        The hospital prepares before the
+                        ambulance arrives.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <button class="secondary-button" onclick="showHome()">
+                ← Back to Home
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section class="contact-screen" id="contactScreen">
+
+        <div class="contact-card">
+
+            <div class="eyebrow">
+                CONTACT
+            </div>
+
+            <h2>
+                Building faster<br>
+                emergency coordination.
+            </h2>
+
+            <p>
+                RapidRoute is designed to connect ambulances
+                and hospitals through a single emergency
+                coordination platform.
+            </p>
+
+            <div class="contact-info">
+
+                <div>
+                    <span>SYSTEM</span>
+                    <strong>RapidRoute</strong>
+                </div>
+
+                <div>
+                    <span>STATUS</span>
+                    <strong class="online-text">● Online</strong>
+                </div>
+
+                <div>
+                    <span>PURPOSE</span>
+                    <strong>Emergency coordination</strong>
+                </div>
+
+            </div>
+
+            <button class="secondary-button" onclick="showHome()">
+                ← Back to Home
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section class="emergency-screen" id="emergencyScreen">
+
+        <div class="emergency-form">
+
+            <div class="eyebrow">
+                STEP 01 · EMERGENCY INFORMATION
+            </div>
+
+            <h2>
+                Tell us what<br>
+                happened.
+            </h2>
+
+            <p>
+                Enter the basic emergency details so RapidRoute
+                can identify suitable hospitals.
+            </p>
+
+
+            <div class="form-group">
+
+                <label>
+                    TYPE OF EMERGENCY
+                </label>
+
+                <select id="emergencyType">
+
+                    <option>
+                        Select emergency type
+                    </option>
+
+                    <option>
+                        Cardiac emergency
+                    </option>
+
+                    <option>
+                        Trauma / Accident
+                    </option>
+
+                    <option>
+                        Breathing emergency
+                    </option>
+
+                    <option>
+                        Neurological emergency
+                    </option>
+
+                    <option>
+                        Other
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    REQUIRED SPECIALTY
+                </label>
+
+                <select id="specialty">
+
+                    <option>
+                        Select specialty
+                    </option>
+
+                    <option>
+                        Cardiology
+                    </option>
+
+                    <option>
+                        Trauma care
+                    </option>
+
+                    <option>
+                        Neurology
+                    </option>
+
+                    <option>
+                        Emergency medicine
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    CURRENT LOCATION
+                </label>
+
+                <div class="location-input">
+
+                    <span>📍</span>
+
+                    <span id="locationText">📍 Detecting ambulance location…</span>
+
+                </div>
+
+            </div>
+
+
+            <div class="demo-map">
+                <div id="emergencyMap"></div>
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    ESTIMATED ARRIVAL
+                </label>
+
+                <div class="location-input">
+
+                    <span>⏱</span>
+
+                    <span>
+                        <span id="estimatedArrivalText">Calculating nearby hospital ETA…</span>
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <button class="find-hospital-button" onclick="findHospitals()">
+
+                Find Suitable Hospitals
+
+                <span>
+                    →
+                </span>
+
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section class="hospital-screen" id="hospitalScreen">
+
+        <div class="hospital-header">
+
+            <div class="eyebrow">
+                STEP 02 · SMART HOSPITAL MATCHING
+            </div>
+
+            <h2>
+                Suitable hospitals<br>
+                nearby.
+            </h2>
+
+            <p>
+                Hospitals are being compared based on emergency
+                capacity, required specialty, distance and ETA.
+            </p>
+
+        </div>
+
+
+        <div class="match-summary">
+
+            <span class="status-dot"></span>
+
+            <span id="suitableCount">0 suitable hospitals found</span> ·
+            Sorted by emergency readiness
+
+        </div>
+
+
+        <div class="hospital-list" id="hospitalList"></div>
+
+    </section>
+
+
+    <section class="confirmation-screen" id="confirmationScreen">
+
+        <div class="confirmation-card">
+
+            <div class="eyebrow">
+                STEP 03 · HOSPITAL CONFIRMATION
+            </div>
+
+            <h2>
+                Hospital<br>
+                confirmed.
+            </h2>
+
+            <p>
+                The selected hospital has received the emergency
+                pre-arrival alert and is preparing for the patient.
+            </p>
+
+
+            <div class="confirmation-hospital">
+
+                <div class="confirmation-icon">
+                    ✚
+                </div>
+
+                <div>
+
+                    <h3>
+                        CityCare Hospital
+                    </h3>
+
+                    <span>
+                        Emergency Department · Cardiology
+                    </span>
+
+                </div>
+
+                <div class="confirmed-status">
+
+                    <span class="status-dot"></span>
+
+                    Confirmed
+
+                </div>
+
+            </div>
+
+
+            <div class="selection-reason">
+
+                <span>
+                    ✓
+                </span>
+
+                Best match based on specialty,
+                emergency capacity and ETA
+
+            </div>
+
+
+            <div class="alert-box">
+
+                <strong>
+                    PRE-ARRIVAL ALERT SENT
+                </strong>
+
+                <p>
+                    Hospital staff have been notified of the
+                    incoming ambulance.
+                </p>
+
+            </div>
+
+
+            <button class="tracking-button" onclick="showTrackingScreen()">
+
+                Start Patient Tracking
+
+                <span>
+                    →
+                </span>
+
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section class="tracking-screen" id="trackingScreen">
+
+        <div class="tracking-header">
+
+            <div class="eyebrow">
+                STEP 04 · PATIENT IN TRANSIT
+            </div>
+
+            <h2>
+                Care is<br>
+                on the way.
+            </h2>
+
+            <p>
+                The ambulance is travelling to the confirmed
+                hospital.
+            </p>
+
+        </div>
+
+
+        <div class="tracking-map">
+            <div id="trackingMap"></div>
+        </div>
+
+    </section>
+
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        let emergencyMap = null;
+        let trackingMap = null;
+        let selectedHospital = null;
+        let hospitalResults = [];
+        let ambulanceLocation = null;
+
+        function hideAllScreens() {
+            [
+                "homeScreen",
+                "aboutScreen",
+                "howScreen",
+                "contactScreen",
+                "emergencyScreen",
+                "hospitalScreen",
+                "confirmationScreen",
+                "trackingScreen"
+            ].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = "none";
+            });
+        }
+
+        function showHome() {
+            hideAllScreens();
+            document.getElementById("homeScreen").style.display = "flex";
+            window.scrollTo(0, 0);
+        }
+
+        function showAbout() {
+            hideAllScreens();
+            document.getElementById("aboutScreen").style.display = "block";
+            window.scrollTo(0, 0);
+        }
+
+        function showHowItWorks() {
+            hideAllScreens();
+            document.getElementById("howScreen").style.display = "flex";
+            window.scrollTo(0, 0);
+        }
+
+        function showContact() {
+            hideAllScreens();
+            document.getElementById("contactScreen").style.display = "flex";
+            window.scrollTo(0, 0);
+        }
+
+        function showEmergencyForm() {
+            hideAllScreens();
+            const screen = document.getElementById("emergencyScreen");
+            screen.style.display = "flex";
+            screen.style.minHeight = "100vh";
+            window.scrollTo(0, 0);
+            setTimeout(() => {
+                initEmergencyMap();
+                detectLiveLocation();
+            }, 200);
+        }
+
+        async function getReadableLocation(latitude, longitude) {
+            try {
+                const response = await fetch(`/reverse-geocode?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`);
+                if (!response.ok) throw new Error("Reverse geocoding failed");
+                const data = await response.json();
+                return data.display_name || "Current location detected";
+            } catch (error) {
+                return `Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+            }
+        }
+
+        async function updateEstimatedArrival() {
+            const etaText = document.getElementById("estimatedArrivalText");
+            if (!etaText) return;
+            const location = ambulanceLocation || [28.6139, 77.2090];
+            etaText.textContent = "Calculating nearby hospital ETA…";
+            try {
+                const response = await fetch("/find-hospital", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        specialty: "",
+                        emergency: "",
+                        latitude: location[0],
+                        longitude: location[1]
+                    })
+                });
+                if (!response.ok) throw new Error("ETA service failed");
+                const data = await response.json();
+                const nearest = (data.hospitals || []).slice().sort((a,b) => a.eta - b.eta)[0];
+                etaText.textContent = nearest
+                    ? `Approximately ${nearest.eta} minutes to ${nearest.name}`
+                    : "No nearby hospital ETA available";
+            } catch (error) {
+                etaText.textContent = "ETA unavailable right now";
+            }
+        }
+
+        async function detectLiveLocation() {
+            const locationText = document.getElementById("locationText");
+            if (!locationText) return;
+
+            if (!navigator.geolocation) {
+                ambulanceLocation = [28.6139, 77.2090];
+                locationText.textContent = "📍 Location unavailable — using demo location";
+                updateEstimatedArrival();
+                return;
+            }
+
+            locationText.textContent = "📍 Detecting your current location…";
+
+            navigator.geolocation.getCurrentPosition(
+                async position => {
+                    ambulanceLocation = [position.coords.latitude, position.coords.longitude];
+                    locationText.textContent = "📍 Finding your address…";
+                    const readable = await getReadableLocation(ambulanceLocation[0], ambulanceLocation[1]);
+                    locationText.textContent = `📍 ${readable}`;
+                    updateEstimatedArrival();
+
+                    if (emergencyMap) {
+                        emergencyMap.setView(ambulanceLocation, 15);
+                        emergencyMap.eachLayer(layer => {
+                            if (layer instanceof L.Marker || layer instanceof L.Circle) emergencyMap.removeLayer(layer);
+                        });
+                        L.marker(ambulanceLocation).addTo(emergencyMap).bindPopup("🚑 Ambulance location").openPopup();
+                        L.circle(ambulanceLocation, { radius: 500, color: "#9b5142", fillColor: "#9b5142", fillOpacity: 0.1 }).addTo(emergencyMap);
+                    }
+                },
+                () => {
+                    ambulanceLocation = [28.6139, 77.2090];
+                    locationText.textContent = "📍 Location permission denied — using demo location";
+                    updateEstimatedArrival();
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+            );
+        }
+
+        function showHospitalScreen() {
+            hideAllScreens();
+            document.getElementById("hospitalScreen").style.display = "block";
+            window.scrollTo(0, 0);
+        }
+
+        function showConfirmationScreen() {
+            hideAllScreens();
+            document.getElementById("confirmationScreen").style.display = "flex";
+            window.scrollTo(0, 0);
+        }
+
+        function showTrackingScreen() {
+            hideAllScreens();
+            document.getElementById("trackingScreen").style.display = "flex";
+            window.scrollTo(0, 0);
+            setTimeout(initTrackingMap, 200);
+        }
+
+        function initEmergencyMap() {
+            const el = document.getElementById("emergencyMap");
+            if (!el || typeof L === "undefined") return;
+            if (emergencyMap) { emergencyMap.invalidateSize(); return; }
+            const ambulance = ambulanceLocation || [28.6139, 77.2090];
+            emergencyMap = L.map(el).setView(ambulance, 13);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap contributors"
+            }).addTo(emergencyMap);
+            L.marker(ambulance).addTo(emergencyMap).bindPopup("🚑 Ambulance location").openPopup();
+            L.circle(ambulance, { radius: 500, color: "#9b5142", fillColor: "#9b5142", fillOpacity: 0.1 }).addTo(emergencyMap);
+            setTimeout(() => emergencyMap.invalidateSize(), 200);
+            updateEstimatedArrival();
+        }
+
+        async function findHospitals() {
+            const specialty = document.getElementById("specialty").value;
+            const emergency = document.getElementById("emergencyType").value;
+            const location = ambulanceLocation || [28.6139, 77.2090];
+            const button = document.querySelector(".find-hospital-button");
+
+            try {
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = "Finding nearby hospitals…";
+                }
+
+                const response = await fetch("/find-hospital", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        specialty: specialty.startsWith("Select") ? "" : specialty,
+                        emergency,
+                        latitude: location[0],
+                        longitude: location[1]
+                    })
+                });
+
+                if (!response.ok) throw new Error("Hospital data service failed");
+
+                const data = await response.json();
+                hospitalResults = data.hospitals || [];
+                // Use the server's de-duplicated total, not the number of cards rendered.
+                renderHospitals(hospitalResults, Number.isFinite(data.totalFound) ? data.totalFound : hospitalResults.length);
+                showHospitalScreen();
+            } catch (error) {
+                alert("Real hospital data could not be loaded right now. Check your internet connection and try again.");
+                console.error(error);
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = "Find Suitable Hospitals <span>→</span>";
+                }
+            }
+        }
+
+        function renderHospitals(hospitals, totalFound = hospitals.length) {
+            const list = document.getElementById("hospitalList");
+            list.innerHTML = "";
+            const count = document.getElementById("suitableCount");
+            if (count) count.textContent = `${totalFound} hospitals found within 10 km`;
+            if (!hospitals.length) {
+                list.innerHTML = '<div class="match-summary">No mapped hospitals were found within 10 km. Try again or widen the search area.</div>';
+                return;
+            }
+
+            const note = document.createElement("div");
+            note.className = "real-data-note";
+            note.innerHTML = "<strong>Live map data:</strong> hospital names and coordinates are loaded from OpenStreetMap. Bed/ICU availability is not being claimed unless a verified live source is connected.";
+            list.appendChild(note);
+            const shown = hospitals.slice(0, 8);
+            shown.forEach((hospital, index) => {
+                const card = document.createElement("div");
+                card.className = "hospital-card";
+                card.innerHTML = `
+                    <div class="hospital-number">${String(index + 1).padStart(2, "0")}</div>
+                    <div class="hospital-info">
+                        <h3>${escapeHtml(hospital.name)}</h3>
+                        <p>${hospital.specialty.map(escapeHtml).join(" · ")}</p>
+                        <div class="hospital-status"><span class="status-dot"></span> Real mapped hospital · ${escapeHtml(hospital.source)}</div>
+                    </div>
+                    <div class="hospital-distance">
+                        <strong>${hospital.distance} km</strong>
+                        <span>~ ${hospital.eta} min</span>
+                    </div>
+                    <div class="match-score">${hospital.matchScore}% match</div>
+                    <button class="hospital-button" onclick="selectHospital(${index})">Select →</button>
+                `;
+                list.appendChild(card);
+            });
+            if (totalFound > shown.length) {
+                const more = document.createElement("div");
+                more.className = "match-summary";
+                more.textContent = `Showing ${shown.length} of ${totalFound} hospitals found within 10 km.`;
+                list.appendChild(more);
+            }
+        }
+
+        function selectHospital(index) {
+            selectedHospital = hospitalResults[index];
+
+            const box = document.querySelector(".confirmation-hospital");
+            if (box && selectedHospital) {
+                box.innerHTML = `
+                    <div class="confirmation-icon">✚</div>
+                    <div><h3>${escapeHtml(selectedHospital.name)}</h3><span>${escapeHtml(selectedHospital.specialty[0] || "Hospital")}</span></div>
+                    <div class="confirmed-status"><span class="status-dot"></span> Selected</div>
+                `;
+            }
+            showConfirmationScreen();
+        }
+
+        async function initTrackingMap() {
+            const el = document.getElementById("trackingMap");
+            if (!el || typeof L === "undefined") return;
+            if (trackingMap) { trackingMap.invalidateSize(); return; }
+
+            const ambulance = ambulanceLocation || [28.6139, 77.2090];
+            const hospital = selectedHospital ? [selectedHospital.latitude, selectedHospital.longitude] : [28.6280, 77.2185];
+
+            trackingMap = L.map(el);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap contributors"
+            }).addTo(trackingMap);
+
+            L.marker(ambulance).addTo(trackingMap).bindPopup("🚑 Ambulance");
+            L.marker(hospital).addTo(trackingMap).bindPopup("🏥 " + (selectedHospital ? selectedHospital.name : "Hospital"));
+
+            try {
+                const coords = `${ambulance[1]},${ambulance[0]};${hospital[1]},${hospital[0]}`;
+                const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
+                if (!response.ok) throw new Error("Routing service unavailable");
+                const data = await response.json();
+                const geometry = data.routes?.[0]?.geometry;
+                if (!geometry) throw new Error("No route returned");
+
+                const route = L.geoJSON(geometry, {
+                    style: { color: "#9b5142", weight: 5, opacity: 0.85 }
+                }).addTo(trackingMap);
+
+                trackingMap.fitBounds(route.getBounds(), { padding: [50, 50] });
+            } catch (error) {
+                const route = L.polyline([ambulance, hospital], { color: "#9b5142", weight: 5, opacity: 0.85 }).addTo(trackingMap);
+                trackingMap.fitBounds(route.getBounds(), { padding: [50, 50] });
+            }
+
+            setTimeout(() => trackingMap.invalidateSize(), 200);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        showHome();
+    </script>
+
+</body>
+</html>
