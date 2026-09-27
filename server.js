@@ -5,7 +5,7 @@ const { URL } = require("url");
 
 const PORT = 5000;
 const PUBLIC = path.join(__dirname, "public");
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const OVERPASS_URL = "https://overpass.kumi.systems/api/interpreter";
 
 function distance(lat1, lon1, lat2, lon2) {
   const R = 6371;
