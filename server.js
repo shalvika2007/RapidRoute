@@ -6,6 +6,8 @@ const { URL } = require("url");
 const PORT = 5000;
 const PUBLIC = path.join(__dirname, "public");
 
+const SEARCH_RADIUS_KM = 100;
+
 
 /* =========================================================
    DISTANCE
@@ -47,14 +49,18 @@ function specialtyMatches(hospital, requested) {
     return false;
   }
 
-  const wanted = requested.toLowerCase();
+  const wanted =
+    requested
+      .toLowerCase();
 
   const text = [
     hospital.name,
+    hospital.type || "",
     ...(hospital.specialty || [])
   ]
     .join(" ")
     .toLowerCase();
+
 
   const aliases = {
 
@@ -82,91 +88,170 @@ function specialtyMatches(hospital, requested) {
 
   };
 
-  if (text.includes(wanted)) {
+
+  if (
+    text.includes(wanted)
+  ) {
     return true;
   }
+
 
   return (
     aliases[requested] || []
   ).some(
-    alias => text.includes(alias)
+    alias =>
+      text.includes(alias)
   );
 }
 
 
 /* =========================================================
-   OVERPASS SERVERS
+   CREATE 100 KM BOUNDING BOX
    ========================================================= */
 
-const OVERPASS_SERVERS = [
+function createBoundingBox(
+  latitude,
+  longitude
+) {
 
-  "https://overpass-api.de/api/interpreter",
+  /*
+    Approximate conversion:
 
-  "https://overpass.kumi.systems/api/interpreter",
+    1 degree latitude ≈ 111 km
 
-  "https://overpass.private.coffee/api/interpreter"
+    Longitude changes slightly depending
+    on latitude.
+  */
 
-];
+  const latDelta =
+    SEARCH_RADIUS_KM / 111;
+
+
+  const lonDelta =
+    SEARCH_RADIUS_KM /
+    (
+      111 *
+      Math.cos(
+        latitude *
+        Math.PI /
+        180
+      )
+    );
+
+
+  const south =
+    latitude - latDelta;
+
+  const north =
+    latitude + latDelta;
+
+  const west =
+    longitude - lonDelta;
+
+  const east =
+    longitude + lonDelta;
+
+
+  return {
+    south,
+    north,
+    west,
+    east
+  };
+}
 
 
 /* =========================================================
-   QUERY ONE OVERPASS SERVER
+   SEARCH OPENSTREETMAP / NOMINATIM
    ========================================================= */
 
-async function queryOverpass(
-  serverUrl,
+async function searchHospitals(
   latitude,
-  longitude,
-  radius
+  longitude
 ) {
 
-  const query = `
-[out:json][timeout:25];
+  const box =
+    createBoundingBox(
+      latitude,
+      longitude
+    );
 
-(
-  nwr["amenity"="hospital"]
-    (around:${radius},${latitude},${longitude});
 
-  nwr["healthcare"="hospital"]
-    (around:${radius},${latitude},${longitude});
+  /*
+    Nominatim viewbox format:
 
-  nwr["healthcare"="clinic"]
-    (around:${radius},${latitude},${longitude});
-);
+    left,top,right,bottom
 
-out center;
-`;
+    = west,north,east,south
+  */
+
+  const viewbox =
+    [
+      box.west,
+      box.north,
+      box.east,
+      box.south
+    ].join(",");
+
+
+  const params =
+    new URLSearchParams({
+
+      format:
+        "jsonv2",
+
+      q:
+        "hospital",
+
+      viewbox:
+        viewbox,
+
+      bounded:
+        "1",
+
+      limit:
+        "50",
+
+      dedupe:
+        "1",
+
+      addressdetails:
+        "1"
+
+    });
+
+
+  const url =
+    "https://nominatim.openstreetmap.org/search?" +
+    params.toString();
 
 
   console.log(
-    `Trying hospital server: ${serverUrl}`
+    "Searching OpenStreetMap hospitals..."
+  );
+
+  console.log(
+    `Search area: approximately ${SEARCH_RADIUS_KM} km`
   );
 
 
   const response =
     await fetch(
-      serverUrl,
+      url,
       {
 
-        method: "POST",
+        method:
+          "GET",
 
         headers: {
-
-          "Content-Type":
-            "application/x-www-form-urlencoded",
 
           "User-Agent":
             "RapidRoute/1.0 student emergency coordination project"
 
         },
 
-        body:
-          new URLSearchParams({
-            data: query
-          }),
-
         signal:
-          AbortSignal.timeout(30000)
+          AbortSignal.timeout(20000)
 
       }
     );
@@ -175,7 +260,7 @@ out center;
   if (!response.ok) {
 
     throw new Error(
-      `OpenStreetMap service returned ${response.status}`
+      `OpenStreetMap search returned ${response.status}`
     );
   }
 
@@ -184,71 +269,20 @@ out center;
     await response.json();
 
 
-  return data;
-}
+  if (!Array.isArray(data)) {
 
-
-/* =========================================================
-   QUERY MULTIPLE SERVERS
-   ========================================================= */
-
-async function getHospitalData(
-  latitude,
-  longitude,
-  radius
-) {
-
-  let lastError =
-    new Error(
-      "All hospital servers failed"
+    throw new Error(
+      "OpenStreetMap returned invalid hospital data"
     );
-
-
-  for (
-    const server
-    of OVERPASS_SERVERS
-  ) {
-
-    try {
-
-      const data =
-        await queryOverpass(
-          server,
-          latitude,
-          longitude,
-          radius
-        );
-
-
-      if (
-        data &&
-        Array.isArray(data.elements)
-      ) {
-
-        console.log(
-          `Hospital server succeeded: ${server}`
-        );
-
-
-        return data;
-
-      }
-
-    } catch (error) {
-
-      console.error(
-        `Hospital server failed: ${server}`,
-        error.message
-      );
-
-
-      lastError =
-        error;
-    }
   }
 
 
-  throw lastError;
+  console.log(
+    `OpenStreetMap returned ${data.length} hospital results`
+  );
+
+
+  return data;
 }
 
 
@@ -262,8 +296,11 @@ async function fetchRealHospitals(
   requestedSpecialty
 ) {
 
-  const lat = Number(latitude);
-  const lon = Number(longitude);
+  const lat =
+    Number(latitude);
+
+  const lon =
+    Number(longitude);
 
 
   if (
@@ -276,72 +313,38 @@ async function fetchRealHospitals(
   ) {
 
     throw new Error(
-      "Invalid location"
+      "Invalid ambulance location"
     );
   }
 
 
-  /*
-    Search radius:
+  /* =======================================================
+     SEARCH
+     ======================================================= */
 
-    100 km
-
-    This means hospitals can be returned
-    from anywhere within 100 km of the
-    ambulance location.
-  */
-
-  const SEARCH_RADIUS =
-    100000;
-
-
-  const data =
-    await getHospitalData(
+  const places =
+    await searchHospitals(
       lat,
-      lon,
-      SEARCH_RADIUS
+      lon
     );
 
 
-  const elements =
-    data.elements || [];
-
-
-  console.log(
-    `OpenStreetMap returned ${elements.length} objects`
-  );
-
-
   /* =======================================================
-     CONVERT OSM OBJECTS
+     CONVERT RESULTS
      ======================================================= */
 
   const hospitals =
-    elements
-      .map(element => {
-
-        const tags =
-          element.tags || {};
-
+    places
+      .map(place => {
 
         const hospitalLat =
-          element.lat ??
-          element.center?.lat;
-
+          Number(place.lat);
 
         const hospitalLon =
-          element.lon ??
-          element.center?.lon;
-
-
-        const name =
-          tags.name ||
-          tags["name:en"] ||
-          tags["official_name"];
+          Number(place.lon);
 
 
         if (
-          !name ||
           !Number.isFinite(
             hospitalLat
           ) ||
@@ -354,25 +357,81 @@ async function fetchRealHospitals(
         }
 
 
+        /*
+          Calculate actual distance
+          from ambulance to hospital.
+        */
+
         const km =
           distance(
             lat,
             lon,
-            Number(hospitalLat),
-            Number(hospitalLon)
+            hospitalLat,
+            hospitalLon
           );
 
 
         /*
-          Extra safety check.
+          Safety check.
 
-          Even though Overpass searched within
-          100 km, we calculate the distance again.
+          Only hospitals actually within
+          100 km are accepted.
         */
 
-        if (km > 100) {
+        if (
+          km > SEARCH_RADIUS_KM
+        ) {
+
           return null;
         }
+
+
+        /*
+          Hospital name.
+
+          Nominatim display_name normally
+          starts with the place name.
+        */
+
+        let name =
+          place.name;
+
+
+        if (!name) {
+
+          name =
+            place.display_name
+              ? place.display_name
+                  .split(",")[0]
+                  .trim()
+              : "Hospital";
+        }
+
+
+        /*
+          Specialty information.
+        */
+
+        const specialty = [
+
+          place.type,
+
+          place.category
+
+        ]
+          .filter(Boolean);
+
+
+        const specialtyMatch =
+          specialtyMatches(
+            {
+              name,
+              type:
+                place.type,
+              specialty
+            },
+            requestedSpecialty
+          );
 
 
         /*
@@ -384,73 +443,33 @@ async function fetchRealHospitals(
         const eta =
           Math.max(
             3,
-            Math.round(km * 3)
-          );
-
-
-        const specialtyText = [
-
-          tags[
-            "healthcare:speciality"
-          ],
-
-          tags[
-            "healthcare:specialty"
-          ],
-
-          tags[
-            "medical_specialty"
-          ],
-
-          tags.speciality,
-
-          tags.specialty
-
-        ]
-          .filter(Boolean)
-          .join(", ");
-
-
-        const specialties =
-          specialtyText
-            ? specialtyText
-                .split(/[;,|]/)
-                .map(
-                  value =>
-                    value.trim()
-                )
-                .filter(Boolean)
-                .slice(0, 5)
-            : [
-                "Hospital / healthcare facility"
-              ];
-
-
-        const specialtyMatch =
-          specialtyMatches(
-            {
-              name,
-              specialty:
-                specialties
-            },
-            requestedSpecialty
+            Math.round(
+              km * 3
+            )
           );
 
 
         /*
           Match score.
-
-          Specialty match gets priority,
-          then nearby hospitals get higher score.
         */
 
-        let matchScore = 55;
+        let matchScore =
+          55;
 
 
-        if (specialtyMatch) {
-          matchScore += 30;
+        if (
+          specialtyMatch
+        ) {
+
+          matchScore +=
+            30;
         }
 
+
+        /*
+          Closer hospitals receive
+          a higher score.
+        */
 
         matchScore +=
           Math.max(
@@ -462,27 +481,46 @@ async function fetchRealHospitals(
         return {
 
           id:
-            `${element.type}-${element.id}`,
+            place.place_id
+              ? String(
+                  place.place_id
+                )
+              :
+                `${hospitalLat}-${hospitalLon}`,
 
-          name,
+          name:
+
+            name,
 
           specialty:
-            specialties,
+
+            specialty.length
+              ? specialty
+              :
+                [
+                  "Hospital / healthcare facility"
+                ],
 
           latitude:
-            Number(hospitalLat),
+
+            hospitalLat,
 
           longitude:
-            Number(hospitalLon),
+
+            hospitalLon,
 
           distance:
+
             Number(
               km.toFixed(1)
             ),
 
-          eta,
+          eta:
+
+            eta,
 
           matchScore:
+
             Math.min(
               99,
               Math.round(
@@ -490,9 +528,12 @@ async function fetchRealHospitals(
               )
             ),
 
-          specialtyMatch,
+          specialtyMatch:
+
+            specialtyMatch,
 
           source:
+
             "OpenStreetMap"
 
         };
@@ -552,8 +593,7 @@ async function fetchRealHospitals(
         (a, b) => {
 
           /*
-            Hospitals matching the requested
-            specialty appear first.
+            Specialty matches first.
           */
 
           if (
@@ -562,14 +602,18 @@ async function fetchRealHospitals(
           ) {
 
             return (
-              Number(b.specialtyMatch) -
-              Number(a.specialtyMatch)
+              Number(
+                b.specialtyMatch
+              ) -
+              Number(
+                a.specialtyMatch
+              )
             );
           }
 
 
           /*
-            Then nearest hospitals.
+            Then nearest hospital.
           */
 
           return (
@@ -582,7 +626,7 @@ async function fetchRealHospitals(
 
 
   console.log(
-    `FINAL RESULT: ${result.length} unique hospitals found within 100 km`
+    `FINAL RESULT: ${result.length} unique hospitals found`
   );
 
 
@@ -617,13 +661,30 @@ async function reverseGeocode(
   }
 
 
+  const params =
+    new URLSearchParams({
+
+      format:
+        "jsonv2",
+
+      lat:
+        String(lat),
+
+      lon:
+        String(lon),
+
+      zoom:
+        "18",
+
+      addressdetails:
+        "1"
+
+    });
+
+
   const url =
-    `https://nominatim.openstreetmap.org/reverse` +
-    `?format=jsonv2` +
-    `&lat=${encodeURIComponent(lat)}` +
-    `&lon=${encodeURIComponent(lon)}` +
-    `&zoom=18` +
-    `&addressdetails=1`;
+    "https://nominatim.openstreetmap.org/reverse?" +
+    params.toString();
 
 
   const response =
@@ -721,7 +782,9 @@ function staticFile(
   let file;
 
 
-  if (pathname === "/") {
+  if (
+    pathname === "/"
+  ) {
 
     file =
       path.join(
@@ -860,7 +923,9 @@ const server =
         );
 
 
-      /* HEALTH */
+      /* =====================================================
+         HEALTH
+         ===================================================== */
 
       if (
         req.method === "GET" &&
@@ -880,7 +945,7 @@ const server =
               "RapidRoute",
 
             hospitalData:
-              "OpenStreetMap / Overpass",
+              "OpenStreetMap / Nominatim",
 
             searchRadius:
               "100 km"
@@ -890,7 +955,9 @@ const server =
       }
 
 
-      /* REVERSE GEOCODE */
+      /* =====================================================
+         REVERSE GEOCODE
+         ===================================================== */
 
       if (
         req.method === "GET" &&
@@ -933,11 +1000,14 @@ const server =
               )
           );
 
+
         return;
       }
 
 
-      /* FIND HOSPITAL */
+      /* =====================================================
+         FIND HOSPITAL
+         ===================================================== */
 
       if (
         req.method === "POST" &&
@@ -990,14 +1060,12 @@ const server =
                     "OpenStreetMap",
 
                   searchRadius:
-                    100,
+                    SEARCH_RADIUS_KM,
 
                   hospitals:
-
                     hospitals,
 
                   totalFound:
-
                     hospitals.length
 
                 }
@@ -1029,6 +1097,7 @@ const server =
                 }
               );
             }
+
           }
         );
 
@@ -1037,7 +1106,9 @@ const server =
       }
 
 
-      /* FRONTEND */
+      /* =====================================================
+         FRONTEND
+         ===================================================== */
 
       if (
         req.method === "GET"
@@ -1050,7 +1121,9 @@ const server =
       }
 
 
-      /* OTHER METHODS */
+      /* =====================================================
+         OTHER METHODS
+         ===================================================== */
 
       json(
         res,
@@ -1066,7 +1139,7 @@ const server =
 
 
 /* =========================================================
-   START
+   START SERVER
    ========================================================= */
 
 server.listen(
@@ -1078,7 +1151,7 @@ server.listen(
     );
 
     console.log(
-      "Hospital source: OpenStreetMap / Overpass"
+      "Hospital source: OpenStreetMap / Nominatim"
     );
 
     console.log(
