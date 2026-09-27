@@ -754,7 +754,7 @@
 
         async function getReadableLocation(latitude, longitude) {
             try {
-                const response = await fetch(`/reverse-geocode?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`);
+                const response = await fetch(`https://rapidroute-hacv.onrender.com/reverse-geocode?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`);
                 if (!response.ok) throw new Error("Reverse geocoding failed");
                 const data = await response.json();
                 return data.display_name || "Current location detected";
@@ -769,7 +769,7 @@
             const location = ambulanceLocation || [28.6139, 77.2090];
             etaText.textContent = "Calculating nearby hospital ETA…";
             try {
-                const response = await fetch("/find-hospital", {
+                const response = await fetch("https://rapidroute-hacv.onrender.com/find-hospital", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -876,7 +876,7 @@
                     button.innerHTML = "Finding nearby hospitals…";
                 }
 
-                const response = await fetch("/find-hospital", {
+                const response = await fetch("https://rapidroute-hacv.onrender.com/find-hospital", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
