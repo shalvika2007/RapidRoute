@@ -202,7 +202,7 @@ const nearbyPlaces =
         hospitalLon
       );
 
-    return km <= 10;
+    return km <= 100;
   });
 
   const hospitals =
