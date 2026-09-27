@@ -173,14 +173,40 @@ async function fetchRealHospitals(
 
 
   const places =
-    await searchHospitals(
-      lat,
-      lon
-    );
+  await searchHospitals(
+    lat,
+    lon
+  );
 
+const nearbyPlaces =
+  places.filter(place => {
+
+    const hospitalLat =
+      Number(place.lat);
+
+    const hospitalLon =
+      Number(place.lon);
+
+    if (
+      !Number.isFinite(hospitalLat) ||
+      !Number.isFinite(hospitalLon)
+    ) {
+      return false;
+    }
+
+    const km =
+      distance(
+        lat,
+        lon,
+        hospitalLat,
+        hospitalLon
+      );
+
+    return km <= 10;
+  });
 
   const hospitals =
-    places
+    nearbyplaces
       .map(place => {
 
         const hLat =
