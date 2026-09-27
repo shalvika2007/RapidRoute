@@ -206,7 +206,7 @@ const nearbyPlaces =
   });
 
   const hospitals =
-    nearbyplaces
+    nearbyPlaces
       .map(place => {
 
         const hLat =
