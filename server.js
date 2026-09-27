@@ -38,7 +38,7 @@ function distance(lat1, lon1, lat2, lon2) {
 
 
 /* =========================================================
-   SPECIALTIES
+   SPECIALTY MATCHING
    ========================================================= */
 
 function specialtyMatches(hospital, requested) {
@@ -51,7 +51,6 @@ function specialtyMatches(hospital, requested) {
 
   const text = [
     hospital.name,
-    hospital.type || "",
     ...(hospital.specialty || [])
   ]
     .join(" ")
@@ -96,51 +95,160 @@ function specialtyMatches(hospital, requested) {
 
 
 /* =========================================================
-   NOMINATIM HOSPITAL SEARCH
+   OVERPASS SERVERS
    ========================================================= */
 
-async function searchHospitals(
+const OVERPASS_SERVERS = [
+
+  "https://overpass-api.de/api/interpreter",
+
+  "https://overpass.kumi.systems/api/interpreter",
+
+  "https://overpass.private.coffee/api/interpreter"
+
+];
+
+
+/* =========================================================
+   QUERY ONE OVERPASS SERVER
+   ========================================================= */
+
+async function queryOverpass(
+  serverUrl,
   latitude,
-  longitude
+  longitude,
+  radius
 ) {
 
-  const url =
-    "https://nominatim.openstreetmap.org/search" +
-    "?format=jsonv2" +
-    "&q=hospital" +
-    `&lat=${encodeURIComponent(latitude)}` +
-    `&lon=${encodeURIComponent(longitude)}` +
-    "&limit=15" +
-    "&addressdetails=1";
+  const query = `
+[out:json][timeout:25];
+
+(
+  nwr["amenity"="hospital"]
+    (around:${radius},${latitude},${longitude});
+
+  nwr["healthcare"="hospital"]
+    (around:${radius},${latitude},${longitude});
+
+  nwr["healthcare"="clinic"]
+    (around:${radius},${latitude},${longitude});
+);
+
+out center;
+`;
+
 
   console.log(
-    "Searching OpenStreetMap for nearby hospitals..."
+    `Trying hospital server: ${serverUrl}`
   );
+
 
   const response =
     await fetch(
-      url,
+      serverUrl,
       {
-        method: "GET",
+
+        method: "POST",
 
         headers: {
+
+          "Content-Type":
+            "application/x-www-form-urlencoded",
+
           "User-Agent":
             "RapidRoute/1.0 student emergency coordination project"
+
         },
 
+        body:
+          new URLSearchParams({
+            data: query
+          }),
+
         signal:
-          AbortSignal.timeout(15000)
+          AbortSignal.timeout(30000)
+
       }
     );
+
 
   if (!response.ok) {
 
     throw new Error(
-      `OpenStreetMap search returned ${response.status}`
+      `OpenStreetMap service returned ${response.status}`
     );
   }
 
-  return await response.json();
+
+  const data =
+    await response.json();
+
+
+  return data;
+}
+
+
+/* =========================================================
+   QUERY MULTIPLE SERVERS
+   ========================================================= */
+
+async function getHospitalData(
+  latitude,
+  longitude,
+  radius
+) {
+
+  let lastError =
+    new Error(
+      "All hospital servers failed"
+    );
+
+
+  for (
+    const server
+    of OVERPASS_SERVERS
+  ) {
+
+    try {
+
+      const data =
+        await queryOverpass(
+          server,
+          latitude,
+          longitude,
+          radius
+        );
+
+
+      if (
+        data &&
+        Array.isArray(data.elements)
+      ) {
+
+        console.log(
+          `Hospital server succeeded: ${server}`
+        );
+
+
+        return data;
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        `Hospital server failed: ${server}`,
+        error.message
+      );
+
+
+      lastError =
+        error;
+    }
+  }
+
+
+  throw lastError;
 }
 
 
@@ -157,6 +265,7 @@ async function fetchRealHospitals(
   const lat = Number(latitude);
   const lon = Number(longitude);
 
+
   if (
     !Number.isFinite(lat) ||
     !Number.isFinite(lon) ||
@@ -172,61 +281,73 @@ async function fetchRealHospitals(
   }
 
 
-  const places =
-  await searchHospitals(
-    lat,
-    lon
+  /*
+    Search radius:
+
+    100 km
+
+    This means hospitals can be returned
+    from anywhere within 100 km of the
+    ambulance location.
+  */
+
+  const SEARCH_RADIUS =
+    100000;
+
+
+  const data =
+    await getHospitalData(
+      lat,
+      lon,
+      SEARCH_RADIUS
+    );
+
+
+  const elements =
+    data.elements || [];
+
+
+  console.log(
+    `OpenStreetMap returned ${elements.length} objects`
   );
 
-const nearbyPlaces =
-  places.filter(place => {
 
-    const hospitalLat =
-      Number(place.lat);
-
-    const hospitalLon =
-      Number(place.lon);
-
-    if (
-      !Number.isFinite(hospitalLat) ||
-      !Number.isFinite(hospitalLon)
-    ) {
-      return false;
-    }
-
-    const km =
-      distance(
-        lat,
-        lon,
-        hospitalLat,
-        hospitalLon
-      );
-
-   return km <= 100;
-  });
+  /* =======================================================
+     CONVERT OSM OBJECTS
+     ======================================================= */
 
   const hospitals =
-    nearbyPlaces
-      .map(place => {
+    elements
+      .map(element => {
 
-        const hLat =
-          Number(place.lat);
+        const tags =
+          element.tags || {};
 
-        const hLon =
-          Number(place.lon);
+
+        const hospitalLat =
+          element.lat ??
+          element.center?.lat;
+
+
+        const hospitalLon =
+          element.lon ??
+          element.center?.lon;
+
 
         const name =
-          place.display_name
-            ? place.display_name
-                .split(",")[0]
-                .trim()
-            : null;
+          tags.name ||
+          tags["name:en"] ||
+          tags["official_name"];
 
 
         if (
           !name ||
-          !Number.isFinite(hLat) ||
-          !Number.isFinite(hLon)
+          !Number.isFinite(
+            hospitalLat
+          ) ||
+          !Number.isFinite(
+            hospitalLon
+          )
         ) {
 
           return null;
@@ -237,13 +358,25 @@ const nearbyPlaces =
           distance(
             lat,
             lon,
-            hLat,
-            hLon
+            Number(hospitalLat),
+            Number(hospitalLon)
           );
 
 
         /*
-          Simple distance-based ETA.
+          Extra safety check.
+
+          Even though Overpass searched within
+          100 km, we calculate the distance again.
+        */
+
+        if (km > 100) {
+          return null;
+        }
+
+
+        /*
+          Simple ETA estimate.
 
           This is NOT live traffic.
         */
@@ -255,25 +388,61 @@ const nearbyPlaces =
           );
 
 
-        const specialty =
-          [
-            place.type,
-            place.category
-          ]
-            .filter(Boolean);
+        const specialtyText = [
+
+          tags[
+            "healthcare:speciality"
+          ],
+
+          tags[
+            "healthcare:specialty"
+          ],
+
+          tags[
+            "medical_specialty"
+          ],
+
+          tags.speciality,
+
+          tags.specialty
+
+        ]
+          .filter(Boolean)
+          .join(", ");
+
+
+        const specialties =
+          specialtyText
+            ? specialtyText
+                .split(/[;,|]/)
+                .map(
+                  value =>
+                    value.trim()
+                )
+                .filter(Boolean)
+                .slice(0, 5)
+            : [
+                "Hospital / healthcare facility"
+              ];
 
 
         const specialtyMatch =
           specialtyMatches(
             {
               name,
-              type:
-                place.type,
-              specialty
+              specialty:
+                specialties
             },
             requestedSpecialty
           );
 
+
+        /*
+          Match score.
+
+          Specialty match gets priority,
+          then nearby hospitals get higher score.
+        */
 
         let matchScore = 55;
 
@@ -283,33 +452,28 @@ const nearbyPlaces =
         }
 
 
-        matchScore += Math.max(
-          0,
-          15 - km
-        );
+        matchScore +=
+          Math.max(
+            0,
+            15 - km
+          );
 
 
         return {
 
           id:
-            place.place_id
-              ? String(place.place_id)
-              : `${hLat}-${hLon}`,
+            `${element.type}-${element.id}`,
 
           name,
 
           specialty:
-            specialty.length
-              ? specialty
-              : [
-                  "Hospital / healthcare facility"
-                ],
+            specialties,
 
           latitude:
-            hLat,
+            Number(hospitalLat),
 
           longitude:
-            hLon,
+            Number(hospitalLon),
 
           distance:
             Number(
@@ -321,7 +485,9 @@ const nearbyPlaces =
           matchScore:
             Math.min(
               99,
-              Math.round(matchScore)
+              Math.round(
+                matchScore
+              )
             ),
 
           specialtyMatch,
@@ -335,9 +501,9 @@ const nearbyPlaces =
       .filter(Boolean);
 
 
-  /*
-    Remove duplicate hospitals.
-  */
+  /* =======================================================
+     REMOVE DUPLICATES
+     ======================================================= */
 
   const unique =
     new Map();
@@ -376,17 +542,19 @@ const nearbyPlaces =
   }
 
 
-  /*
-    Sort by:
-    1. Specialty match
-    2. Match score
-    3. Distance
-  */
+  /* =======================================================
+     SORT
+     ======================================================= */
 
   const result =
     [...unique.values()]
       .sort(
         (a, b) => {
+
+          /*
+            Hospitals matching the requested
+            specialty appear first.
+          */
 
           if (
             b.specialtyMatch !==
@@ -399,27 +567,22 @@ const nearbyPlaces =
             );
           }
 
-          if (
-            b.matchScore !==
-            a.matchScore
-          ) {
 
-            return (
-              b.matchScore -
-              a.matchScore
-            );
-          }
+          /*
+            Then nearest hospitals.
+          */
 
           return (
             a.distance -
             b.distance
           );
+
         }
       );
 
 
   console.log(
-    `Hospital search successful: ${result.length} hospitals found`
+    `FINAL RESULT: ${result.length} unique hospitals found within 100 km`
   );
 
 
@@ -467,13 +630,17 @@ async function reverseGeocode(
     await fetch(
       url,
       {
+
         headers: {
+
           "User-Agent":
             "RapidRoute/1.0 student emergency coordination project"
+
         },
 
         signal:
           AbortSignal.timeout(10000)
+
       }
     );
 
@@ -656,6 +823,7 @@ function staticFile(
 
 
       res.end(data);
+
     }
   );
 }
@@ -712,7 +880,10 @@ const server =
               "RapidRoute",
 
             hospitalData:
-              "OpenStreetMap / Nominatim"
+              "OpenStreetMap / Overpass",
+
+            searchRadius:
+              "100 km"
 
           }
         );
@@ -818,6 +989,9 @@ const server =
                   source:
                     "OpenStreetMap",
 
+                  searchRadius:
+                    100,
+
                   hospitals:
 
                     hospitals,
@@ -904,7 +1078,11 @@ server.listen(
     );
 
     console.log(
-      "Hospital source: OpenStreetMap / Nominatim"
+      "Hospital source: OpenStreetMap / Overpass"
+    );
+
+    console.log(
+      "Hospital search radius: 100 km"
     );
 
   }
