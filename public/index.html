@@ -1481,6 +1481,17 @@ function renderHospitals(
     list.appendChild(note);
 
 
+    // Sort hospitals from nearest to farthest
+    hospitals.sort(
+        (a, b) =>
+            Number(a.distance) -
+            Number(b.distance)
+    );
+
+    // Keep the same sorted order for hospital selection
+    hospitalResults = hospitals;
+
+
     const shown =
         hospitals.slice(0, 8);
 
