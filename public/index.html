@@ -1379,6 +1379,17 @@ async function findHospitals() {
                 ? data.hospitals
                 : [];
 
+        // Sort hospitals from nearest to farthest.
+        hospitalResults.sort((a, b) => {
+            const distanceA = Number(a.distance);
+            const distanceB = Number(b.distance);
+
+            if (!Number.isFinite(distanceA)) return 1;
+            if (!Number.isFinite(distanceB)) return -1;
+
+            return distanceA - distanceB;
+        });
+
 
         renderHospitals(
             hospitalResults,
@@ -1481,17 +1492,8 @@ function renderHospitals(
     list.appendChild(note);
 
 
-    // Sort only the hospitals shown on Page 3
-    // from nearest to farthest.
-    const sortedHospitals = [...hospitals].sort(
-        (a, b) => Number(a.distance) - Number(b.distance)
-    );
-
-    // Keep the same sorted order for the Select buttons.
-    hospitalResults = sortedHospitals;
-
     const shown =
-        sortedHospitals.slice(0, 8);
+        hospitals.slice(0, 8);
 
 
     shown.forEach(
