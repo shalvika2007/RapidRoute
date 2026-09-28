@@ -609,7 +609,7 @@
                 <span>⏱</span>
 
                 <span id="estimatedArrivalText">
-                    Calculating nearby hospital ETA…
+                    ETA will be calculated after hospital matching
                 </span>
 
             </div>
@@ -846,7 +846,8 @@ function hideAllScreens() {
 
     screens.forEach(function(id) {
 
-        const element = document.getElementById(id);
+        const element =
+            document.getElementById(id);
 
         if (element) {
             element.style.display = "none";
@@ -861,13 +862,15 @@ function showHome() {
 
     hideAllScreens();
 
-    const screen = document.getElementById("homeScreen");
+    const screen =
+        document.getElementById("homeScreen");
 
     if (screen) {
         screen.style.display = "flex";
     }
 
     window.scrollTo(0, 0);
+
 }
 
 
@@ -875,13 +878,15 @@ function showAbout() {
 
     hideAllScreens();
 
-    const screen = document.getElementById("aboutScreen");
+    const screen =
+        document.getElementById("aboutScreen");
 
     if (screen) {
         screen.style.display = "block";
     }
 
     window.scrollTo(0, 0);
+
 }
 
 
@@ -889,13 +894,15 @@ function showHowItWorks() {
 
     hideAllScreens();
 
-    const screen = document.getElementById("howScreen");
+    const screen =
+        document.getElementById("howScreen");
 
     if (screen) {
         screen.style.display = "flex";
     }
 
     window.scrollTo(0, 0);
+
 }
 
 
@@ -903,13 +910,15 @@ function showContact() {
 
     hideAllScreens();
 
-    const screen = document.getElementById("contactScreen");
+    const screen =
+        document.getElementById("contactScreen");
 
     if (screen) {
         screen.style.display = "flex";
     }
 
     window.scrollTo(0, 0);
+
 }
 
 
@@ -917,10 +926,13 @@ function showEmergencyForm() {
 
     hideAllScreens();
 
-    const screen = document.getElementById("emergencyScreen");
+    const screen =
+        document.getElementById("emergencyScreen");
 
     if (!screen) {
-        console.error("Emergency screen not found.");
+        console.error(
+            "Emergency screen not found."
+        );
         return;
     }
 
@@ -935,6 +947,7 @@ function showEmergencyForm() {
         detectLiveLocation();
 
     }, 200);
+
 }
 
 
@@ -942,101 +955,69 @@ function showEmergencyForm() {
    LOCATION
 ========================= */
 
-async function getReadableLocation(latitude, longitude) {
+async function getReadableLocation(
+    latitude,
+    longitude
+) {
 
     try {
 
-        const response = await fetch(
-            `${BACKEND_URL}/reverse-geocode?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`
-        );
+        const response =
+            await fetch(
+                `${BACKEND_URL}/reverse-geocode?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`
+            );
 
         if (!response.ok) {
-            throw new Error("Reverse geocoding failed");
+            throw new Error(
+                "Reverse geocoding failed"
+            );
         }
 
-        const data = await response.json();
+        const data =
+            await response.json();
 
-        return data.display_name || "Current location detected";
+        return (
+            data.display_name ||
+            "Current location detected"
+        );
 
     } catch (error) {
 
-        console.warn("Reverse geocoding error:", error);
+        console.warn(
+            "Reverse geocoding error:",
+            error
+        );
 
-        return `Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        return (
+            `Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+        );
 
     }
 
 }
 
 
+/*
+   IMPORTANT:
+   We no longer call /find-hospital here.
+
+   Hospital search happens only when the user
+   clicks "Find Suitable Hospitals".
+*/
+
 async function updateEstimatedArrival() {
 
-    const etaText = document.getElementById("estimatedArrivalText");
+    const etaText =
+        document.getElementById(
+            "estimatedArrivalText"
+        );
 
     if (!etaText) {
         return;
     }
 
-    const location = ambulanceLocation || [28.6139, 77.2090];
-
-    etaText.textContent = "Calculating nearby hospital ETA…";
-
-    try {
-
-        const response = await fetch(
-            `${BACKEND_URL}/find-hospital`,
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type": "application/json"
-                },
-
-                body: JSON.stringify({
-                    specialty: "",
-                    emergency: "",
-                    latitude: location[0],
-                    longitude: location[1]
-                })
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error("ETA service failed");
-        }
-
-        const data = await response.json();
-
-        const hospitals = Array.isArray(data.hospitals)
-            ? data.hospitals
-            : [];
-
-        const nearest = hospitals
-            .slice()
-            .sort(function(a, b) {
-                return Number(a.eta) - Number(b.eta);
-            })[0];
-
-        if (nearest) {
-
-            etaText.textContent =
-                `Approximately ${nearest.eta} minutes to ${nearest.name}`;
-
-        } else {
-
-            etaText.textContent =
-                "No nearby hospital ETA available";
-
-        }
-
-    } catch (error) {
-
-        console.error("ETA error:", error);
-
-        etaText.textContent =
-            "ETA unavailable right now";
-
-    }
+    etaText.textContent =
+        "ETA will be calculated after hospital matching";
 
 }
 
@@ -1044,15 +1025,19 @@ async function updateEstimatedArrival() {
 async function detectLiveLocation() {
 
     const locationText =
-        document.getElementById("locationText");
+        document.getElementById(
+            "locationText"
+        );
 
     if (!locationText) {
         return;
     }
 
+
     if (!navigator.geolocation) {
 
-        ambulanceLocation = [28.6139, 77.2090];
+        ambulanceLocation =
+            [28.6139, 77.2090];
 
         locationText.textContent =
             "📍 Location unavailable — using demo location";
@@ -1060,7 +1045,9 @@ async function detectLiveLocation() {
         updateEstimatedArrival();
 
         return;
+
     }
+
 
     locationText.textContent =
         "📍 Detecting your current location…";
@@ -1071,12 +1058,17 @@ async function detectLiveLocation() {
         async function(position) {
 
             ambulanceLocation = [
+
                 position.coords.latitude,
+
                 position.coords.longitude
+
             ];
+
 
             locationText.textContent =
                 "📍 Finding your address…";
+
 
             const readable =
                 await getReadableLocation(
@@ -1084,8 +1076,10 @@ async function detectLiveLocation() {
                     ambulanceLocation[1]
                 );
 
+
             locationText.textContent =
                 `📍 ${readable}`;
+
 
             updateEstimatedArrival();
 
@@ -1097,23 +1091,34 @@ async function detectLiveLocation() {
                     15
                 );
 
-                emergencyMap.eachLayer(function(layer) {
 
-                    if (
-                        layer instanceof L.Marker ||
-                        layer instanceof L.Circle
-                    ) {
+                emergencyMap.eachLayer(
+                    function(layer) {
 
-                        emergencyMap.removeLayer(layer);
+                        if (
+                            layer instanceof L.Marker ||
+                            layer instanceof L.Circle
+                        ) {
+
+                            emergencyMap.removeLayer(
+                                layer
+                            );
+
+                        }
 
                     }
+                );
 
-                });
 
-                L.marker(ambulanceLocation)
+                L.marker(
+                    ambulanceLocation
+                )
                     .addTo(emergencyMap)
-                    .bindPopup("🚑 Ambulance location")
+                    .bindPopup(
+                        "🚑 Ambulance location"
+                    )
                     .openPopup();
+
 
                 L.circle(
                     ambulanceLocation,
@@ -1123,24 +1128,34 @@ async function detectLiveLocation() {
                         fillColor: "#9b5142",
                         fillOpacity: 0.1
                     }
-                ).addTo(emergencyMap);
+                )
+                    .addTo(emergencyMap);
 
             }
 
         },
 
+
         function(error) {
 
-            console.warn("Location error:", error);
+            console.warn(
+                "Location error:",
+                error
+            );
 
-            ambulanceLocation = [28.6139, 77.2090];
+
+            ambulanceLocation =
+                [28.6139, 77.2090];
+
 
             locationText.textContent =
                 "📍 Location permission denied — using demo location";
 
+
             updateEstimatedArrival();
 
         },
+
 
         {
             enableHighAccuracy: true,
@@ -1160,27 +1175,45 @@ async function detectLiveLocation() {
 function initEmergencyMap() {
 
     const element =
-        document.getElementById("emergencyMap");
+        document.getElementById(
+            "emergencyMap"
+        );
+
 
     if (
         !element ||
         typeof L === "undefined"
     ) {
-        console.error("Emergency map could not be initialized.");
+
+        console.error(
+            "Emergency map could not be initialized."
+        );
+
         return;
+
     }
+
 
     if (emergencyMap) {
 
-        setTimeout(function() {
-            emergencyMap.invalidateSize();
-        }, 100);
+        setTimeout(
+            function() {
+
+                emergencyMap.invalidateSize();
+
+            },
+            100
+        );
 
         return;
+
     }
 
+
     const ambulance =
-        ambulanceLocation || [28.6139, 77.2090];
+        ambulanceLocation ||
+        [28.6139, 77.2090];
+
 
     emergencyMap =
         L.map(element).setView(
@@ -1188,19 +1221,26 @@ function initEmergencyMap() {
             13
         );
 
+
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
             maxZoom: 19,
+
             attribution:
                 "&copy; OpenStreetMap contributors"
         }
-    ).addTo(emergencyMap);
+    )
+        .addTo(emergencyMap);
+
 
     L.marker(ambulance)
         .addTo(emergencyMap)
-        .bindPopup("🚑 Ambulance location")
+        .bindPopup(
+            "🚑 Ambulance location"
+        )
         .openPopup();
+
 
     L.circle(
         ambulance,
@@ -1210,11 +1250,18 @@ function initEmergencyMap() {
             fillColor: "#9b5142",
             fillOpacity: 0.1
         }
-    ).addTo(emergencyMap);
+    )
+        .addTo(emergencyMap);
 
-    setTimeout(function() {
-        emergencyMap.invalidateSize();
-    }, 300);
+
+    setTimeout(
+        function() {
+
+            emergencyMap.invalidateSize();
+
+        },
+        300
+    );
 
 }
 
@@ -1226,31 +1273,54 @@ function initEmergencyMap() {
 async function findHospitals() {
 
     const specialtyElement =
-        document.getElementById("specialty");
+        document.getElementById(
+            "specialty"
+        );
 
     const emergencyElement =
-        document.getElementById("emergencyType");
+        document.getElementById(
+            "emergencyType"
+        );
 
     const button =
-        document.querySelector(".find-hospital-button");
+        document.querySelector(
+            ".find-hospital-button"
+        );
 
-    if (!specialtyElement || !emergencyElement) {
-        console.error("Emergency form fields not found.");
+
+    if (
+        !specialtyElement ||
+        !emergencyElement
+    ) {
+
+        console.error(
+            "Emergency form fields not found."
+        );
+
         return;
+
     }
 
+
     const specialty =
-        specialtyElement.value.startsWith("Select")
+        specialtyElement.value.startsWith(
+            "Select"
+        )
             ? ""
             : specialtyElement.value;
 
+
     const emergency =
-        emergencyElement.value.startsWith("Select")
+        emergencyElement.value.startsWith(
+            "Select"
+        )
             ? ""
             : emergencyElement.value;
 
+
     const location =
-        ambulanceLocation || [28.6139, 77.2090];
+        ambulanceLocation ||
+        [28.6139, 77.2090];
 
 
     try {
@@ -1265,6 +1335,11 @@ async function findHospitals() {
         }
 
 
+        /*
+           THIS IS NOW THE ONLY PLACE WHERE
+           /find-hospital IS CALLED.
+        */
+
         const response =
             await fetch(
                 `${BACKEND_URL}/find-hospital`,
@@ -1272,20 +1347,26 @@ async function findHospitals() {
                     method: "POST",
 
                     headers: {
-                        "Content-Type": "application/json"
+                        "Content-Type":
+                            "application/json"
                     },
 
                     body: JSON.stringify({
 
-                        specialty: specialty,
+                        specialty:
+                            specialty,
 
-                        emergency: emergency,
+                        emergency:
+                            emergency,
 
-                        latitude: location[0],
+                        latitude:
+                            location[0],
 
-                        longitude: location[1]
+                        longitude:
+                            location[1]
 
                     })
+
                 }
             );
 
@@ -1318,36 +1399,104 @@ async function findHospitals() {
 
 
         hospitalResults =
-            Array.isArray(data.hospitals)
+            Array.isArray(
+                data.hospitals
+            )
                 ? data.hospitals
                 : [];
 
 
-        hospitalResults.sort(function(a, b) {
+        /*
+           SORT REAL HOSPITALS BY DISTANCE.
+           NEAREST HOSPITAL FIRST.
+        */
 
-            const distanceA =
-                Number(a.distance);
+        hospitalResults.sort(
+            function(a, b) {
 
-            const distanceB =
-                Number(b.distance);
+                const distanceA =
+                    Number(a.distance);
 
-            if (!Number.isFinite(distanceA)) {
-                return 1;
+                const distanceB =
+                    Number(b.distance);
+
+
+                if (
+                    !Number.isFinite(
+                        distanceA
+                    )
+                ) {
+                    return 1;
+                }
+
+
+                if (
+                    !Number.isFinite(
+                        distanceB
+                    )
+                ) {
+                    return -1;
+                }
+
+
+                return (
+                    distanceA -
+                    distanceB
+                );
+
             }
-
-            if (!Number.isFinite(distanceB)) {
-                return -1;
-            }
-
-            return distanceA - distanceB;
-
-        });
+        );
 
 
         const totalFound =
-            Number.isFinite(Number(data.totalFound))
+            Number.isFinite(
+                Number(data.totalFound)
+            )
                 ? Number(data.totalFound)
                 : hospitalResults.length;
+
+
+        /*
+           UPDATE ETA USING THE NEAREST
+           REAL HOSPITAL.
+        */
+
+        const etaText =
+            document.getElementById(
+                "estimatedArrivalText"
+            );
+
+
+        if (etaText) {
+
+            const nearest =
+                hospitalResults
+                    .slice()
+                    .sort(
+                        function(a, b) {
+
+                            return (
+                                Number(a.distance) -
+                                Number(b.distance)
+                            );
+
+                        }
+                    )[0];
+
+
+            if (nearest) {
+
+                etaText.textContent =
+                    `Approximately ${nearest.eta} minutes to ${nearest.name}`;
+
+            } else {
+
+                etaText.textContent =
+                    "No nearby hospital ETA available";
+
+            }
+
+        }
 
 
         renderHospitals(
@@ -1365,6 +1514,7 @@ async function findHospitals() {
             "Hospital search error:",
             error
         );
+
 
         alert(
             "Real hospital data could not be loaded right now. Please try again."
@@ -1396,15 +1546,24 @@ function renderHospitals(
 ) {
 
     const list =
-        document.getElementById("hospitalList");
+        document.getElementById(
+            "hospitalList"
+        );
 
     const count =
-        document.getElementById("suitableCount");
+        document.getElementById(
+            "suitableCount"
+        );
 
 
     if (!list) {
-        console.error("Hospital list element not found.");
+
+        console.error(
+            "Hospital list element not found."
+        );
+
         return;
+
     }
 
 
@@ -1434,10 +1593,14 @@ function renderHospitals(
 
 
     const note =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
+
 
     note.className =
         "real-data-note";
+
 
     note.innerHTML = `
         <strong>Live map data:</strong>
@@ -1445,100 +1608,135 @@ function renderHospitals(
         loaded from OpenStreetMap.
     `;
 
+
     list.appendChild(note);
 
+
+    /*
+       Show up to 8 hospitals,
+       already sorted by distance.
+    */
 
     const shown =
         hospitals.slice(0, 8);
 
 
-    shown.forEach(function(hospital, index) {
+    shown.forEach(
+        function(hospital, index) {
 
-        const card =
-            document.createElement("div");
-
-        card.className =
-            "hospital-card";
-
-
-        const specialties =
-            Array.isArray(hospital.specialty)
-                ? hospital.specialty
-                : ["Hospital"];
+            const card =
+                document.createElement(
+                    "div"
+                );
 
 
-        card.innerHTML = `
+            card.className =
+                "hospital-card";
 
-            <div class="hospital-number">
-                ${String(index + 1).padStart(2, "0")}
-            </div>
 
-            <div class="hospital-info">
+            const specialties =
+                Array.isArray(
+                    hospital.specialty
+                )
+                    ? hospital.specialty
+                    : ["Hospital"];
 
-                <h3>
-                    ${escapeHtml(hospital.name)}
-                </h3>
 
-                <p>
-                    ${specialties
-                        .map(function(item) {
-                            return escapeHtml(item);
-                        })
-                        .join(" · ")}
-                </p>
+            card.innerHTML = `
 
-                <div class="hospital-status">
+                <div class="hospital-number">
+                    ${String(index + 1).padStart(2, "0")}
+                </div>
 
-                    <span class="status-dot"></span>
+                <div class="hospital-info">
 
-                    Real mapped hospital ·
-                    OpenStreetMap
+                    <h3>
+                        ${escapeHtml(
+                            hospital.name
+                        )}
+                    </h3>
+
+                    <p>
+                        ${specialties
+                            .map(
+                                function(item) {
+
+                                    return escapeHtml(
+                                        item
+                                    );
+
+                                }
+                            )
+                            .join(" · ")}
+                    </p>
+
+                    <div class="hospital-status">
+
+                        <span class="status-dot"></span>
+
+                        Real mapped hospital ·
+                        OpenStreetMap
+
+                    </div>
 
                 </div>
 
-            </div>
+                <div class="hospital-distance">
 
-            <div class="hospital-distance">
+                    <strong>
+                        ${escapeHtml(
+                            hospital.distance
+                        )} km
+                    </strong>
 
-                <strong>
-                    ${escapeHtml(hospital.distance)} km
-                </strong>
+                    <span>
+                        ~ ${escapeHtml(
+                            hospital.eta
+                        )} min
+                    </span>
 
-                <span>
-                    ~ ${escapeHtml(hospital.eta)} min
-                </span>
+                </div>
 
-            </div>
+                <div class="match-score">
+                    ${escapeHtml(
+                        hospital.matchScore
+                    )}% match
+                </div>
 
-            <div class="match-score">
-                ${escapeHtml(hospital.matchScore)}% match
-            </div>
+                <button
+                    class="hospital-button"
+                    onclick="selectHospital(${index})"
+                >
+                    Select →
+                </button>
 
-            <button
-                class="hospital-button"
-                onclick="selectHospital(${index})"
-            >
-                Select →
-            </button>
-
-        `;
-
-
-        list.appendChild(card);
-
-    });
+            `;
 
 
-    if (totalFound > shown.length) {
+            list.appendChild(card);
+
+        }
+    );
+
+
+    if (
+        totalFound >
+        shown.length
+    ) {
 
         const more =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         more.className =
             "match-summary";
 
+
         more.textContent =
             `Showing ${shown.length} of ${totalFound} hospitals found.`;
+
 
         list.appendChild(more);
 
@@ -1558,8 +1756,13 @@ function selectHospital(index) {
 
 
     if (!selectedHospital) {
-        console.error("Selected hospital not found.");
+
+        console.error(
+            "Selected hospital not found."
+        );
+
         return;
+
     }
 
 
@@ -1572,7 +1775,9 @@ function selectHospital(index) {
     if (box) {
 
         const specialty =
-            Array.isArray(selectedHospital.specialty)
+            Array.isArray(
+                selectedHospital.specialty
+            )
                 ? selectedHospital.specialty[0]
                 : "Hospital";
 
@@ -1586,11 +1791,15 @@ function selectHospital(index) {
             <div>
 
                 <h3>
-                    ${escapeHtml(selectedHospital.name)}
+                    ${escapeHtml(
+                        selectedHospital.name
+                    )}
                 </h3>
 
                 <span>
-                    ${escapeHtml(specialty)}
+                    ${escapeHtml(
+                        specialty
+                    )}
                 </span>
 
             </div>
@@ -1613,38 +1822,64 @@ function selectHospital(index) {
 }
 
 
+/* =========================
+   HOSPITAL SCREEN
+========================= */
+
 function showHospitalScreen() {
 
     hideAllScreens();
 
+
     const screen =
-        document.getElementById("hospitalScreen");
+        document.getElementById(
+            "hospitalScreen"
+        );
+
 
     if (screen) {
 
-        screen.style.display = "block";
+        screen.style.display =
+            "block";
 
     }
 
-    window.scrollTo(0, 0);
+
+    window.scrollTo(
+        0,
+        0
+    );
 
 }
 
+
+/* =========================
+   CONFIRMATION SCREEN
+========================= */
 
 function showConfirmationScreen() {
 
     hideAllScreens();
 
+
     const screen =
-        document.getElementById("confirmationScreen");
+        document.getElementById(
+            "confirmationScreen"
+        );
+
 
     if (screen) {
 
-        screen.style.display = "flex";
+        screen.style.display =
+            "flex";
 
     }
 
-    window.scrollTo(0, 0);
+
+    window.scrollTo(
+        0,
+        0
+    );
 
 }
 
@@ -1657,22 +1892,35 @@ function showTrackingScreen() {
 
     hideAllScreens();
 
+
     const screen =
-        document.getElementById("trackingScreen");
+        document.getElementById(
+            "trackingScreen"
+        );
+
 
     if (screen) {
 
-        screen.style.display = "flex";
+        screen.style.display =
+            "flex";
 
     }
 
-    window.scrollTo(0, 0);
 
-    setTimeout(function() {
+    window.scrollTo(
+        0,
+        0
+    );
 
-        initTrackingMap();
 
-    }, 300);
+    setTimeout(
+        function() {
+
+            initTrackingMap();
+
+        },
+        300
+    );
 
 }
 
@@ -1680,15 +1928,22 @@ function showTrackingScreen() {
 async function initTrackingMap() {
 
     const element =
-        document.getElementById("trackingMap");
+        document.getElementById(
+            "trackingMap"
+        );
 
 
     if (
         !element ||
         typeof L === "undefined"
     ) {
-        console.error("Tracking map could not be initialized.");
+
+        console.error(
+            "Tracking map could not be initialized."
+        );
+
         return;
+
     }
 
 
@@ -1708,12 +1963,27 @@ async function initTrackingMap() {
 
     const hospital =
         selectedHospital &&
-        Number.isFinite(Number(selectedHospital.latitude)) &&
-        Number.isFinite(Number(selectedHospital.longitude))
+        Number.isFinite(
+            Number(
+                selectedHospital.latitude
+            )
+        ) &&
+        Number.isFinite(
+            Number(
+                selectedHospital.longitude
+            )
+        )
 
             ? [
-                Number(selectedHospital.latitude),
-                Number(selectedHospital.longitude)
+
+                Number(
+                    selectedHospital.latitude
+                ),
+
+                Number(
+                    selectedHospital.longitude
+                )
+
             ]
 
             : [28.6280, 77.2185];
@@ -1726,17 +1996,22 @@ async function initTrackingMap() {
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
+
             maxZoom: 19,
 
             attribution:
                 "&copy; OpenStreetMap contributors"
+
         }
-    ).addTo(trackingMap);
+    )
+        .addTo(trackingMap);
 
 
     L.marker(ambulance)
         .addTo(trackingMap)
-        .bindPopup("🚑 Ambulance");
+        .bindPopup(
+            "🚑 Ambulance"
+        );
 
 
     L.marker(hospital)
@@ -1794,18 +2069,26 @@ async function initTrackingMap() {
                 geometry,
                 {
                     style: {
+
                         color: "#9b5142",
+
                         weight: 5,
+
                         opacity: 0.85
+
                     }
                 }
-            ).addTo(trackingMap);
+            )
+                .addTo(trackingMap);
 
 
         trackingMap.fitBounds(
             route.getBounds(),
             {
-                padding: [50, 50]
+                padding: [
+                    50,
+                    50
+                ]
             }
         );
 
@@ -1820,30 +2103,40 @@ async function initTrackingMap() {
 
         const route =
             L.polyline(
-                [ambulance, hospital],
+                [
+                    ambulance,
+                    hospital
+                ],
                 {
                     color: "#9b5142",
                     weight: 5,
                     opacity: 0.85
                 }
-            ).addTo(trackingMap);
+            )
+                .addTo(trackingMap);
 
 
         trackingMap.fitBounds(
             route.getBounds(),
             {
-                padding: [50, 50]
+                padding: [
+                    50,
+                    50
+                ]
             }
         );
 
     }
 
 
-    setTimeout(function() {
+    setTimeout(
+        function() {
 
-        trackingMap.invalidateSize();
+            trackingMap.invalidateSize();
 
-    }, 300);
+        },
+        300
+    );
 
 }
 
@@ -1854,7 +2147,9 @@ async function initTrackingMap() {
 
 function escapeHtml(value) {
 
-    return String(value ?? "")
+    return String(
+        value ?? ""
+    )
 
         .replaceAll(
             "&",
