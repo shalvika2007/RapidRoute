@@ -5,32 +5,56 @@ const path = require("path");
 const { URL } = require("url");
 
 const PORT = process.env.PORT || 5000;
-const SEARCH_RADIUS_KM = 100;
 
-/* =========================================================
-   SIMPLE IN-MEMORY CACHE
-   ========================================================= */
+/*
+=========================================================
+RAPIDROUTE SERVER
+=========================================================
+
+Features:
+- Hospital search using OpenStreetMap / Overpass
+- Nominatim fallback
+- Multiple Overpass servers
+- Hospital caching
+- Reverse geocoding
+- Static frontend serving
+- CORS
+- Demo fallback hospitals if external services fail
+
+=========================================================
+*/
+
+const SEARCH_RADIUS_KM = 30;
+const CACHE_TIME = 10 * 60 * 1000;
 
 const hospitalCache = new Map();
 const geocodeCache = new Map();
 
-const CACHE_TIME = 10 * 60 * 1000; // 10 minutes
-
 let lastNominatimRequest = 0;
+
+
+/* ========================================================
+   BASIC HELPERS
+======================================================== */
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/* =========================================================
-   DISTANCE
-   ========================================================= */
+
+/* ========================================================
+   DISTANCE CALCULATION
+======================================================== */
 
 function distanceKm(lat1, lon1, lat2, lon2) {
+
     const R = 6371;
 
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const dLat =
+        (lat2 - lat1) * Math.PI / 180;
+
+    const dLon =
+        (lon2 - lon1) * Math.PI / 180;
 
     const a =
         Math.sin(dLat / 2) ** 2 +
@@ -38,18 +62,26 @@ function distanceKm(lat1, lon1, lat2, lon2) {
         Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLon / 2) ** 2;
 
-    return R * 2 *
+    return (
+        R *
+        2 *
         Math.atan2(
             Math.sqrt(a),
             Math.sqrt(1 - a)
-        );
+        )
+    );
 }
 
-/* =========================================================
-   SPECIALTY MATCHING
-   ========================================================= */
 
-function specialtyMatches(name, address, specialty) {
+/* ========================================================
+   SPECIALTY MATCHING
+======================================================== */
+
+function specialtyMatches(
+    name,
+    address,
+    specialty
+) {
 
     if (!specialty) {
         return true;
@@ -62,7 +94,7 @@ function specialtyMatches(name, address, specialty) {
         specialty.toLowerCase();
 
     if (wanted.includes("cardiology")) {
-        return /cardio|heart/.test(text);
+        return /cardio|heart|cardiac/.test(text);
     }
 
     if (wanted.includes("trauma")) {
@@ -73,6 +105,14 @@ function specialtyMatches(name, address, specialty) {
         return /neuro|brain/.test(text);
     }
 
+    if (wanted.includes("orthopedic")) {
+        return /ortho|bone|joint/.test(text);
+    }
+
+    if (wanted.includes("pediatric")) {
+        return /child|children|pediatric/.test(text);
+    }
+
     if (wanted.includes("emergency")) {
         return /emergency|trauma|medical center|hospital/.test(text);
     }
@@ -80,98 +120,79 @@ function specialtyMatches(name, address, specialty) {
     return true;
 }
 
-/* =========================================================
-   BOUNDING BOX
-   ========================================================= */
 
-function createBoundingBox(
-    latitude,
-    longitude,
-    radiusKm
-) {
-
-    const latDelta =
-        radiusKm / 111;
-
-    const cosLat =
-        Math.cos(latitude * Math.PI / 180);
-
-    const lonDelta =
-        radiusKm /
-        (111 * Math.max(0.2, cosLat));
-
-    return {
-        left: longitude - lonDelta,
-        right: longitude + lonDelta,
-        top: latitude + latDelta,
-        bottom: latitude - latDelta
-    };
-}
-
-/* =========================================================
+/* ========================================================
    HTTPS GET
-   ========================================================= */
+======================================================== */
 
-function httpsGet(url, headers = {}) {
+function httpsGet(
+    url,
+    headers = {},
+    timeout = 20000
+) {
 
     return new Promise((resolve, reject) => {
 
-        const request = https.get(
-            url,
-            {
-                headers,
-                timeout: 25000
-            },
-            response => {
+        const request =
+            https.get(
+                url,
+                {
+                    headers,
+                    timeout
+                },
+                response => {
 
-                let data = "";
+                    let data = "";
 
-                response.on(
-                    "data",
-                    chunk => {
-                        data += chunk;
-                    }
-                );
-
-                response.on(
-                    "end",
-                    () => {
-
-                        if (
-                            response.statusCode >= 200 &&
-                            response.statusCode < 300
-                        ) {
-                            resolve({
-                                statusCode:
-                                    response.statusCode,
-                                data
-                            });
-
-                            return;
+                    response.on(
+                        "data",
+                        chunk => {
+                            data += chunk;
                         }
+                    );
 
-                        const error =
-                            new Error(
-                                `HTTP ${response.statusCode}: ${data.slice(0, 300)}`
-                            );
+                    response.on(
+                        "end",
+                        () => {
 
-                        error.statusCode =
-                            response.statusCode;
+                            if (
+                                response.statusCode >= 200 &&
+                                response.statusCode < 300
+                            ) {
 
-                        reject(error);
-                    }
-                );
-            }
-        );
+                                resolve({
+                                    statusCode:
+                                        response.statusCode,
+                                    data
+                                });
+
+                                return;
+                            }
+
+                            const error =
+                                new Error(
+                                    `HTTP ${response.statusCode}: ${data.slice(0, 300)}`
+                                );
+
+                            error.statusCode =
+                                response.statusCode;
+
+                            reject(error);
+                        }
+                    );
+                }
+            );
 
         request.on(
             "timeout",
             () => {
+
                 request.destroy(
                     new Error(
                         "Request timed out"
                     )
                 );
+
             }
         );
 
@@ -182,19 +203,15 @@ function httpsGet(url, headers = {}) {
     });
 }
 
-/* =========================================================
+
+/* ========================================================
    NOMINATIM REQUEST
-   ========================================================= */
+======================================================== */
 
 async function nominatimGet(url) {
 
-    /*
-       Nominatim asks clients to avoid rapid requests.
-       We therefore make sure there is a small gap
-       between requests.
-    */
-
-    const now = Date.now();
+    const now =
+        Date.now();
 
     const wait =
         1100 -
@@ -207,15 +224,22 @@ async function nominatimGet(url) {
     lastNominatimRequest =
         Date.now();
 
+    const headers = {
+
+        "User-Agent":
+            "RapidRoute/1.0 Emergency Hospital Coordination Demo",
+
+        "Accept":
+            "application/json"
+    };
+
     try {
 
         const result =
             await httpsGet(
                 url,
-                {
-                    "User-Agent":
-                        "RapidRoute/1.0 Emergency Hospital Coordination Demo"
-                }
+                headers,
+                25000
             );
 
         return JSON.parse(
@@ -223,11 +247,6 @@ async function nominatimGet(url) {
         );
 
     } catch (error) {
-
-        /*
-           If Nominatim temporarily returns 429,
-           wait and try once more.
-        */
 
         if (
             error.statusCode === 429
@@ -245,10 +264,8 @@ async function nominatimGet(url) {
             const retry =
                 await httpsGet(
                     url,
-                    {
-                        "User-Agent":
-                            "RapidRoute/1.0 Emergency Hospital Coordination Demo"
-                    }
+                    headers,
+                    25000
                 );
 
             return JSON.parse(
@@ -260,66 +277,91 @@ async function nominatimGet(url) {
     }
 }
 
-/* =========================================================
+
+/* ========================================================
    NOMINATIM HOSPITAL SEARCH
-   ========================================================= */
+======================================================== */
 
 async function searchHospitalsNominatim(
     latitude,
     longitude
 ) {
 
-    const box =
-        createBoundingBox(
-            latitude,
-            longitude,
-            SEARCH_RADIUS_KM
+    const radiusKm =
+        SEARCH_RADIUS_KM;
+
+    const latDelta =
+        radiusKm / 111;
+
+    const cosLat =
+        Math.cos(
+            latitude * Math.PI / 180
         );
+
+    const lonDelta =
+        radiusKm /
+        (
+            111 *
+            Math.max(
+                0.2,
+                cosLat
+            )
+        );
+
+    const left =
+        longitude - lonDelta;
+
+    const right =
+        longitude + lonDelta;
+
+    const top =
+        latitude + latDelta;
+
+    const bottom =
+        latitude - latDelta;
 
     const params =
         new URLSearchParams({
+
             q: "hospital",
+
             format: "json",
+
             addressdetails: "1",
-            limit: "50",
+
+            limit: "30",
+
             dedupe: "1",
+
             bounded: "1",
+
             viewbox:
-                `${box.left},${box.top},${box.right},${box.bottom}`
+                `${left},${top},${right},${bottom}`
         });
 
     const url =
         `https://nominatim.openstreetmap.org/search?${params.toString()}`;
 
-    return await nominatimGet(url);
+    return await nominatimGet(
+        url
+    );
 }
 
-/* =========================================================
-   OVERPASS FALLBACK
-   ========================================================= */
+
+/* ========================================================
+   OVERPASS HOSPITAL SEARCH
+======================================================== */
 
 async function searchHospitalsOverpass(
     latitude,
     longitude
 ) {
 
-    /*
-       Overpass is used only when Nominatim
-       is temporarily unavailable.
-
-       We use a smaller practical radius for
-       the fallback to avoid an unnecessarily
-       heavy query.
-    */
-
     const radiusMeters =
-        Math.min(
-            SEARCH_RADIUS_KM * 1000,
-            100000
-        );
+        SEARCH_RADIUS_KM * 1000;
 
     const query = `
-[out:json][timeout:30];
+[out:json][timeout:25];
 
 (
   node["amenity"="hospital"](around:${radiusMeters},${latitude},${longitude});
@@ -331,54 +373,80 @@ out center tags;
 `;
 
     const encoded =
-        encodeURIComponent(query);
+        encodeURIComponent(
+            query
+        );
 
     const endpoints = [
+
         "https://overpass-api.de/api/interpreter",
-        "https://overpass.kumi.systems/api/interpreter"
+
+        "https://overpass.kumi.systems/api/interpreter",
+
+        "https://overpass.private.coffee/api/interpreter"
     ];
 
     let lastError = null;
 
-    for (const endpoint of endpoints) {
+    for (
+        const endpoint of endpoints
+    ) {
 
         try {
+
+            console.log(
+                "Trying Overpass:",
+                endpoint
+            );
 
             const result =
                 await httpsGet(
                     `${endpoint}?data=${encoded}`,
                     {
                         "User-Agent":
-                            "RapidRoute/1.0 Emergency Hospital Coordination Demo"
-                    }
+                            "RapidRoute/1.0 Emergency Hospital Coordination Demo",
+
+                        "Accept":
+                            "application/json"
+                    },
+                    35000
                 );
 
             const data =
-                JSON.parse(result.data);
+                JSON.parse(
+                    result.data
+                );
 
-            return data.elements || [];
+            return (
+                data.elements ||
+                []
+            );
 
         } catch (error) {
 
             console.error(
-                "Overpass endpoint failed:",
+                "Overpass failed:",
                 endpoint,
                 error.message
             );
 
-            lastError = error;
+            lastError =
+                error;
         }
     }
 
-    throw lastError ||
+    throw (
+        lastError ||
         new Error(
-            "Hospital data services unavailable"
-        );
+            "All Overpass servers failed"
+        )
+    );
 }
 
-/* =========================================================
-   CONVERT OVERPASS RESULT
-   ========================================================= */
+
+/* ========================================================
+   CONVERT OVERPASS RESULTS
+======================================================== */
 
 function convertOverpassHospitals(
     elements
@@ -386,7 +454,9 @@ function convertOverpassHospitals(
 
     const hospitals = [];
 
-    for (const item of elements) {
+    for (
+        const item of elements
+    ) {
 
         let latitude;
         let longitude;
@@ -406,10 +476,14 @@ function convertOverpassHospitals(
         ) {
 
             latitude =
-                Number(item.center.lat);
+                Number(
+                    item.center.lat
+                );
 
             longitude =
-                Number(item.center.lon);
+                Number(
+                    item.center.lon
+                );
 
         } else {
 
@@ -420,6 +494,7 @@ function convertOverpassHospitals(
             !Number.isFinite(latitude) ||
             !Number.isFinite(longitude)
         ) {
+
             continue;
         }
 
@@ -433,33 +508,46 @@ function convertOverpassHospitals(
 
         const addressParts = [];
 
-        if (tags["addr:housenumber"]) {
+        if (
+            tags["addr:housenumber"]
+        ) {
+
             addressParts.push(
                 tags["addr:housenumber"]
             );
         }
 
-        if (tags["addr:street"]) {
+        if (
+            tags["addr:street"]
+        ) {
+
             addressParts.push(
                 tags["addr:street"]
             );
         }
 
-        if (tags["addr:city"]) {
+        if (
+            tags["addr:city"]
+        ) {
+
             addressParts.push(
                 tags["addr:city"]
             );
         }
 
         const address =
-            addressParts.length > 0
+            addressParts.length
                 ? addressParts.join(", ")
                 : "Address unavailable";
 
         hospitals.push({
+
             name,
+
             address,
+
             latitude,
+
             longitude
         });
     }
@@ -467,30 +555,118 @@ function convertOverpassHospitals(
     return hospitals;
 }
 
-/* =========================================================
-   MAIN REAL HOSPITAL SEARCH
-   ========================================================= */
+
+/* ========================================================
+   DEMO FALLBACK
+======================================================== */
+
+function createDemoHospitals(
+    latitude,
+    longitude
+) {
+
+    /*
+       These are NOT real hospital records.
+
+       They are only used so the demo UI continues
+       working if OpenStreetMap services temporarily fail.
+    */
+
+    return [
+
+        {
+            name:
+                "Nearest Emergency Hospital",
+
+            address:
+                "Demo hospital location",
+
+            latitude:
+                latitude + 0.015,
+
+            longitude:
+                longitude + 0.010,
+
+            demo:
+                true
+        },
+
+        {
+            name:
+                "City Trauma Centre",
+
+            address:
+                "Demo hospital location",
+
+            latitude:
+                latitude - 0.018,
+
+            longitude:
+                longitude + 0.014,
+
+            demo:
+                true
+        },
+
+        {
+            name:
+                "Emergency Medical Centre",
+
+            address:
+                "Demo hospital location",
+
+            latitude:
+                latitude + 0.025,
+
+            longitude:
+                longitude - 0.018,
+
+            demo:
+                true
+        },
+
+        {
+            name:
+                "Regional Hospital",
+
+            address:
+                "Demo hospital location",
+
+            latitude:
+                latitude - 0.028,
+
+            longitude:
+                longitude - 0.020,
+
+            demo:
+                true
+        }
+    ];
+}
+
+
+/* ========================================================
+   MAIN HOSPITAL SEARCH
+======================================================== */
 
 async function searchHospitals(
     latitude,
     longitude
 ) {
 
-    /*
-       Round the location so that tiny GPS changes
-       still use the same cache entry.
-    */
-
     const cacheKey =
         `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
 
     const cached =
-        hospitalCache.get(cacheKey);
+        hospitalCache.get(
+            cacheKey
+        );
 
     if (
         cached &&
-        Date.now() - cached.timestamp <
-            CACHE_TIME
+        Date.now() -
+        cached.timestamp <
+        CACHE_TIME
     ) {
 
         console.log(
@@ -500,71 +676,148 @@ async function searchHospitals(
         return cached.data;
     }
 
-    let results = [];
+
+    /*
+       STEP 1
+       Try Overpass first.
+    */
 
     try {
 
         console.log(
-            "Searching hospitals using Nominatim..."
+            "Searching hospitals using Overpass..."
         );
 
-        results =
+        const raw =
+            await searchHospitalsOverpass(
+                latitude,
+                longitude
+            );
+
+        const converted =
+            convertOverpassHospitals(
+                raw
+            );
+
+        if (
+            converted.length > 0
+        ) {
+
+            hospitalCache.set(
+                cacheKey,
+                {
+                    timestamp:
+                        Date.now(),
+
+                    data:
+                        converted
+                }
+            );
+
+            console.log(
+                `Found ${converted.length} hospitals using Overpass.`
+            );
+
+            return converted;
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Overpass search failed:",
+            error.message
+        );
+    }
+
+
+    /*
+       STEP 2
+       Try Nominatim.
+    */
+
+    try {
+
+        console.log(
+            "Trying Nominatim hospital search..."
+        );
+
+        const results =
             await searchHospitalsNominatim(
                 latitude,
                 longitude
             );
 
+        if (
+            results &&
+            results.length > 0
+        ) {
+
+            hospitalCache.set(
+                cacheKey,
+                {
+                    timestamp:
+                        Date.now(),
+
+                    data:
+                        results
+                }
+            );
+
+            console.log(
+                `Found ${results.length} hospitals using Nominatim.`
+            );
+
+            return results;
+        }
+
     } catch (error) {
 
         console.error(
-            "Nominatim hospital search failed:",
+            "Nominatim search failed:",
             error.message
         );
-
-        console.log(
-            "Trying Overpass fallback..."
-        );
-
-        try {
-
-            results =
-                await searchHospitalsOverpass(
-                    latitude,
-                    longitude
-                );
-
-            results =
-                convertOverpassHospitals(
-                    results
-                );
-
-        } catch (fallbackError) {
-
-            console.error(
-                "Overpass fallback failed:",
-                fallbackError.message
-            );
-
-            throw new Error(
-                "Real hospital data services are temporarily unavailable."
-            );
-        }
     }
+
+
+    /*
+       STEP 3
+       DEMO FALLBACK
+
+       This prevents Page 3 from crashing.
+    */
+
+    console.warn(
+        "External hospital services unavailable."
+    );
+
+    console.warn(
+        "Using demo hospital locations."
+    );
+
+    const demoHospitals =
+        createDemoHospitals(
+            latitude,
+            longitude
+        );
 
     hospitalCache.set(
         cacheKey,
         {
-            timestamp: Date.now(),
-            data: results
+            timestamp:
+                Date.now(),
+
+            data:
+                demoHospitals
         }
     );
 
-    return results;
+    return demoHospitals;
 }
 
-/* =========================================================
-   BUILD HOSPITAL RESULTS
-   ========================================================= */
+
+/* ========================================================
+   BUILD FINAL HOSPITAL RESULTS
+======================================================== */
 
 async function fetchRealHospitals({
     latitude,
@@ -581,7 +834,10 @@ async function fetchRealHospitals({
 
     const hospitals = [];
 
-    for (const item of results) {
+
+    for (
+        const item of results
+    ) {
 
         const lat =
             Number(
@@ -599,8 +855,10 @@ async function fetchRealHospitals({
             !Number.isFinite(lat) ||
             !Number.isFinite(lon)
         ) {
+
             continue;
         }
+
 
         const distance =
             distanceKm(
@@ -610,22 +868,27 @@ async function fetchRealHospitals({
                 lon
             );
 
+
         if (
             distance >
             SEARCH_RADIUS_KM
         ) {
+
             continue;
         }
+
 
         const name =
             item.name ||
             item.display_name?.split(",")[0] ||
             "Hospital";
 
+
         const address =
             item.display_name ||
             item.address ||
             "Address unavailable";
+
 
         const specialtyMatch =
             specialtyMatches(
@@ -634,31 +897,53 @@ async function fetchRealHospitals({
                 specialty
             );
 
+
         /*
-           This is an estimated travel time,
-           not live ambulance navigation time.
+           Estimated ETA.
+
+           This is NOT live traffic data.
         */
 
         const estimatedMinutes =
             Math.max(
                 3,
-                Math.round(distance * 3)
+                Math.round(
+                    distance * 3
+                )
             );
 
+
         let matchScore = 70;
+
 
         if (
             specialty &&
             specialtyMatch
         ) {
+
             matchScore += 20;
         }
 
-        if (distance < 10) {
+
+        if (
+            distance < 5
+        ) {
+
             matchScore += 10;
-        } else if (distance < 25) {
-            matchScore += 5;
+
+        } else if (
+            distance < 10
+        ) {
+
+            matchScore += 7;
+
+        } else if (
+            distance < 20
+        ) {
+
+            matchScore += 4;
         }
+
 
         matchScore =
             Math.min(
@@ -666,88 +951,132 @@ async function fetchRealHospitals({
                 matchScore
             );
 
+
         hospitals.push({
+
             name,
+
             address,
-            latitude: lat,
-            longitude: lon,
+
+            latitude:
+                lat,
+
+            longitude:
+                lon,
+
             distance:
                 Number(
                     distance.toFixed(1)
                 ),
+
             eta:
                 estimatedMinutes,
+
             estimatedMinutes,
+
             matchScore,
+
             specialty:
                 specialtyMatch &&
                 specialty
                     ? [specialty]
                     : ["Hospital"],
+
             source:
-                "OpenStreetMap"
+                item.demo
+                    ? "RapidRoute Demo"
+                    : "OpenStreetMap",
+
+            demo:
+                Boolean(
+                    item.demo
+                )
         });
     }
 
-    /* =====================================================
+
+    /* ====================================================
        REMOVE DUPLICATES
-       ===================================================== */
+    ==================================================== */
 
     const unique = [];
-    const seen = new Set();
 
-    for (const hospital of hospitals) {
+    const seen =
+        new Set();
+
+
+    for (
+        const hospital of hospitals
+    ) {
 
         const key =
             `${hospital.name.toLowerCase()}|` +
             `${hospital.latitude.toFixed(5)}|` +
             `${hospital.longitude.toFixed(5)}`;
 
-        if (!seen.has(key)) {
+
+        if (
+            !seen.has(key)
+        ) {
 
             seen.add(key);
-            unique.push(hospital);
+
+            unique.push(
+                hospital
+            );
         }
     }
 
-    /* =====================================================
+
+    /* ====================================================
        SORT
-       ===================================================== */
+    ==================================================== */
 
-    unique.sort((a, b) => {
+    unique.sort(
+        (a, b) => {
 
-        const aSpecialty =
-            specialtyMatches(
-                a.name,
-                a.address,
-                specialty
+            const aSpecialty =
+                specialtyMatches(
+                    a.name,
+                    a.address,
+                    specialty
+                );
+
+            const bSpecialty =
+                specialtyMatches(
+                    b.name,
+                    b.address,
+                    specialty
+                );
+
+
+            if (
+                aSpecialty !==
+                bSpecialty
+            ) {
+
+                return (
+                    Number(bSpecialty) -
+                    Number(aSpecialty)
+                );
+            }
+
+
+            return (
+                a.distance -
+                b.distance
             );
-
-        const bSpecialty =
-            specialtyMatches(
-                b.name,
-                b.address,
-                specialty
-            );
-
-        if (
-            aSpecialty !==
-            bSpecialty
-        ) {
-            return bSpecialty -
-                aSpecialty;
         }
+    );
 
-        return a.distance -
-            b.distance;
-    });
 
     return unique;
 }
 
-/* =========================================================
+
+/* ========================================================
    REVERSE GEOCODING
-   ========================================================= */
+======================================================== */
 
 async function reverseGeocode(
     latitude,
@@ -757,47 +1086,90 @@ async function reverseGeocode(
     const cacheKey =
         `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
 
+
     const cached =
-        geocodeCache.get(cacheKey);
+        geocodeCache.get(
+            cacheKey
+        );
+
 
     if (
         cached &&
-        Date.now() - cached.timestamp <
-            CACHE_TIME
+        Date.now() -
+        cached.timestamp <
+        CACHE_TIME
     ) {
 
         return cached.data;
     }
 
+
     const params =
         new URLSearchParams({
-            lat: latitude,
-            lon: longitude,
-            format: "json",
-            zoom: "18",
-            addressdetails: "1"
+
+            lat:
+                latitude,
+
+            lon:
+                longitude,
+
+            format:
+                "json",
+
+            zoom:
+                "18",
+
+            addressdetails:
+                "1"
         });
+
 
     const url =
         `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
 
-    const result =
-        await nominatimGet(url);
 
-    geocodeCache.set(
-        cacheKey,
-        {
-            timestamp: Date.now(),
-            data: result
-        }
-    );
+    try {
 
-    return result;
+        const result =
+            await nominatimGet(
+                url
+            );
+
+
+        geocodeCache.set(
+            cacheKey,
+            {
+                timestamp:
+                    Date.now(),
+
+                data:
+                    result
+            }
+        );
+
+
+        return result;
+
+    } catch (error) {
+
+        console.error(
+            "Reverse geocoding failed:",
+            error.message
+        );
+
+
+        return {
+
+            display_name:
+                "Current location"
+        };
+    }
 }
 
-/* =========================================================
+
+/* ========================================================
    JSON RESPONSE
-   ========================================================= */
+======================================================== */
 
 function sendJson(
     response,
@@ -806,11 +1178,15 @@ function sendJson(
 ) {
 
     const body =
-        JSON.stringify(data);
+        JSON.stringify(
+            data
+        );
+
 
     response.writeHead(
         statusCode,
         {
+
             "Content-Type":
                 "application/json",
 
@@ -825,12 +1201,16 @@ function sendJson(
         }
     );
 
-    response.end(body);
+
+    response.end(
+        body
+    );
 }
 
-/* =========================================================
-   STATIC FILES
-   ========================================================= */
+
+/* ========================================================
+   STATIC FILE SERVER
+======================================================== */
 
 function serveStatic(
     response,
@@ -838,6 +1218,7 @@ function serveStatic(
 ) {
 
     let filePath;
+
 
     if (
         pathname === "/" ||
@@ -859,6 +1240,7 @@ function serveStatic(
                 ""
             );
 
+
         filePath =
             path.join(
                 __dirname,
@@ -867,16 +1249,19 @@ function serveStatic(
             );
     }
 
+
     const publicFolder =
         path.join(
             __dirname,
             "public"
         );
 
+
     const normalizedPath =
         path.normalize(
             filePath
         );
+
 
     if (
         !normalizedPath.startsWith(
@@ -884,7 +1269,10 @@ function serveStatic(
         )
     ) {
 
-        response.writeHead(403);
+        response.writeHead(
+            403
+        );
+
         response.end(
             "Forbidden"
         );
@@ -892,13 +1280,21 @@ function serveStatic(
         return;
     }
 
+
     fs.readFile(
         normalizedPath,
-        (error, data) => {
+        (
+            error,
+            data
+        ) => {
 
-            if (error) {
+            if (
+                error
+            ) {
 
-                response.writeHead(404);
+                response.writeHead(
+                    404
+                );
 
                 response.end(
                     "Not found"
@@ -907,10 +1303,12 @@ function serveStatic(
                 return;
             }
 
+
             const ext =
                 path.extname(
                     normalizedPath
                 );
+
 
             const types = {
 
@@ -936,26 +1334,35 @@ function serveStatic(
                     "image/webp",
 
                 ".svg":
-                    "image/svg+xml"
+                    "image/svg+xml",
+
+                ".ico":
+                    "image/x-icon"
             };
+
 
             response.writeHead(
                 200,
                 {
+
                     "Content-Type":
                         types[ext] ||
                         "application/octet-stream"
                 }
             );
 
-            response.end(data);
+
+            response.end(
+                data
+            );
         }
     );
 }
 
-/* =========================================================
+
+/* ========================================================
    SERVER
-   ========================================================= */
+======================================================== */
 
 const server =
     http.createServer(
@@ -964,9 +1371,11 @@ const server =
             response
         ) => {
 
-            /* ---------------------------------------------
-               CORS PREFLIGHT
-            --------------------------------------------- */
+            /*
+            -----------------------------------------------
+            CORS PREFLIGHT
+            -----------------------------------------------
+            */
 
             if (
                 request.method ===
@@ -976,6 +1385,7 @@ const server =
                 response.writeHead(
                     204,
                     {
+
                         "Access-Control-Allow-Origin":
                             "*",
 
@@ -987,10 +1397,12 @@ const server =
                     }
                 );
 
+
                 response.end();
 
                 return;
             }
+
 
             try {
 
@@ -1000,26 +1412,37 @@ const server =
                         `http://${request.headers.host}`
                     );
 
+
                 const pathname =
                     parsedUrl.pathname;
 
-                /* -----------------------------------------
-                   HEALTH CHECK
-                ----------------------------------------- */
+
+                /*
+                -------------------------------------------
+                HEALTH CHECK
+                -------------------------------------------
+                */
 
                 if (
                     request.method === "GET" &&
-                    pathname === "/api/health"
+                    pathname ===
+                        "/api/health"
                 ) {
 
                     sendJson(
                         response,
                         200,
                         {
-                            status: "ok",
-                            service: "RapidRoute",
+
+                            status:
+                                "ok",
+
+                            service:
+                                "RapidRoute",
+
                             hospitalData:
-                                "OpenStreetMap / Nominatim with Overpass fallback",
+                                "OpenStreetMap / Overpass / Nominatim with demo fallback",
+
                             searchRadiusKm:
                                 SEARCH_RADIUS_KM
                         }
@@ -1028,9 +1451,12 @@ const server =
                     return;
                 }
 
-                /* -----------------------------------------
-                   REVERSE GEOCODE
-                ----------------------------------------- */
+
+                /*
+                -------------------------------------------
+                REVERSE GEOCODE
+                -------------------------------------------
+                */
 
                 if (
                     request.method === "GET" &&
@@ -1045,12 +1471,14 @@ const server =
                                 .get("lat")
                         );
 
+
                     const longitude =
                         Number(
                             parsedUrl
                                 .searchParams
                                 .get("lon")
                         );
+
 
                     if (
                         !Number.isFinite(
@@ -1065,6 +1493,7 @@ const server =
                             response,
                             400,
                             {
+
                                 error:
                                     "Invalid coordinates"
                             }
@@ -1073,28 +1502,35 @@ const server =
                         return;
                     }
 
+
                     const result =
                         await reverseGeocode(
                             latitude,
                             longitude
                         );
 
+
                     sendJson(
                         response,
                         200,
                         {
+
                             display_name:
                                 result.display_name ||
                                 "Current location"
                         }
                     );
 
+
                     return;
                 }
 
-                /* -----------------------------------------
-                   FIND HOSPITAL
-                ----------------------------------------- */
+
+                /*
+                -------------------------------------------
+                FIND HOSPITAL
+                -------------------------------------------
+                */
 
                 if (
                     request.method === "POST" &&
@@ -1104,16 +1540,13 @@ const server =
 
                     let body = "";
 
+
                     request.on(
                         "data",
                         chunk => {
 
                             body += chunk;
 
-                            /*
-                               Prevent extremely large
-                               request bodies.
-                            */
 
                             if (
                                 body.length >
@@ -1121,10 +1554,10 @@ const server =
                             ) {
 
                                 request.destroy();
-
                             }
                         }
                     );
+
 
                     request.on(
                         "end",
@@ -1134,18 +1567,22 @@ const server =
 
                                 const input =
                                     JSON.parse(
-                                        body || "{}"
+                                        body ||
+                                        "{}"
                                     );
+
 
                                 const latitude =
                                     Number(
                                         input.latitude
                                     );
 
+
                                 const longitude =
                                     Number(
                                         input.longitude
                                     );
+
 
                                 const specialty =
                                     String(
@@ -1153,11 +1590,13 @@ const server =
                                         ""
                                     );
 
+
                                 const emergency =
                                     String(
                                         input.emergency ||
                                         ""
                                     );
+
 
                                 if (
                                     !Number.isFinite(
@@ -1172,6 +1611,7 @@ const server =
                                         response,
                                         400,
                                         {
+
                                             error:
                                                 "Valid latitude and longitude are required"
                                         }
@@ -1180,33 +1620,47 @@ const server =
                                     return;
                                 }
 
+
                                 console.log(
                                     "Hospital search:",
                                     {
+
                                         latitude,
+
                                         longitude,
+
                                         specialty,
+
                                         emergency
                                     }
                                 );
 
+
                                 const hospitals =
                                     await fetchRealHospitals(
                                         {
+
                                             latitude,
+
                                             longitude,
+
                                             specialty,
+
                                             emergency
                                         }
                                     );
+
 
                                 sendJson(
                                     response,
                                     200,
                                     {
+
                                         ambulanceLocation:
                                             {
+
                                                 latitude,
+
                                                 longitude
                                             },
 
@@ -1222,17 +1676,21 @@ const server =
                                     }
                                 );
 
-                            } catch (error) {
+                            } catch (
+                                error
+                            ) {
 
                                 console.error(
                                     "Hospital search error:",
                                     error
                                 );
 
+
                                 sendJson(
                                     response,
                                     500,
                                     {
+
                                         error:
                                             "Hospital search failed",
 
@@ -1244,28 +1702,37 @@ const server =
                         }
                     );
 
+
                     return;
                 }
 
-                /* -----------------------------------------
-                   STATIC WEBSITE
-                ----------------------------------------- */
+
+                /*
+                -------------------------------------------
+                STATIC WEBSITE
+                -------------------------------------------
+                */
 
                 serveStatic(
                     response,
                     pathname
                 );
 
-            } catch (error) {
+            } catch (
+                error
+            ) {
 
                 console.error(
+                    "Server error:",
                     error
                 );
+
 
                 sendJson(
                     response,
                     500,
                     {
+
                         error:
                             "Server error"
                     }
@@ -1274,9 +1741,10 @@ const server =
         }
     );
 
-/* =========================================================
+
+/* ========================================================
    START SERVER
-   ========================================================= */
+======================================================== */
 
 server.listen(
     PORT,
@@ -1286,5 +1754,8 @@ server.listen(
             `RapidRoute server running on port ${PORT}`
         );
 
+        console.log(
+            `Hospital search radius: ${SEARCH_RADIUS_KM} km`
+        );
     }
 );
